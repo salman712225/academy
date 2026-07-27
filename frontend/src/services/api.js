@@ -1,6 +1,7 @@
 // Frontend API service wrapper
 
-const BASE_URL = '/api';
+// Use VITE_API_URL environment variable in production, fallback to '/api' for local proxy
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const getHeaders = () => {
   const headers = {
