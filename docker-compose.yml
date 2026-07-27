@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: mongo:8.0.3
+    container_name: academy_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: academy_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://db:27017
+      - SECRET_KEY=supersecretkeyforacademydevelopment123!#
+    depends_on:
+      - db
+    restart: always
+
+  frontend:
+    image: node:20.7.0-slim
+    container_name: academy_frontend
+    working_dir: /workspace
+    volumes:
+      - ./frontend:/workspace
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://backend:8000
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  mongodb_data:
