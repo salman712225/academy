@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import OperationFailure
+import certifi
 from app.core.config import settings
 
 logger = logging.getLogger("academy_db")
@@ -14,7 +15,7 @@ is_replica_set: bool = False
 async def connect_to_mongo():
     global client, db, is_replica_set
     logger.info(f"Connecting to MongoDB at {settings.MONGODB_URL}...")
-    client = AsyncIOMotorClient(settings.MONGODB_URL)
+    client = AsyncIOMotorClient(settings.MONGODB_URL, tlsCAFile=certifi.where())
     db = client[settings.DATABASE_NAME]
     
     try:
