@@ -1,12 +1,15 @@
 import os
 import shutil
 import uuid
+import httpx
 from datetime import datetime, timezone
 from typing import List
 
+import cloudinary
+import cloudinary.uploader
 from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_db
@@ -14,6 +17,20 @@ from app.modules.auth.service import get_current_user, require_role
 from app.modules.documents.schemas import NoteResponse, ResumeResponse
 
 router = APIRouter(prefix="/documents", tags=["Document Management"])
+
+# Helper to extract public_id from Cloudinary URL for deletion
+def get_cloudinary_public_id(url: str) -> str:
+    try:
+        if "/upload/" in url:
+            parts = url.split("/upload/")[-1].split("/")
+            # Skip version tag (e.g., v1722304910)
+            if parts[0].startswith("v") and parts[0][1:].isdigit():
+                return "/".join(parts[1:])
+            else:
+                return "/".join(parts)
+    except Exception:
+        pass
+    return ""
 
 @router.post("/notes/upload", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
 async def upload_note(
@@ -23,7 +40,6 @@ async def upload_note(
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user = Depends(require_role(["head", "trainer"]))
 ):
-    # Validate extension
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
     if ext not in [".pdf", ".ppt", ".pptx"]:
@@ -32,29 +48,42 @@ async def upload_note(
             detail="Invalid file format. Only PDF, PPT, and PPTX are allowed for course notes."
         )
     
-    # Generate unique filename to avoid overwrites
-    unique_filename = f"{uuid.uuid4()}{ext}"
-    filepath = os.path.join("uploads", "notes", unique_filename)
+    note_id = str(uuid.uuid4())
     
-    # Save file locally
-    os.makedirs(os.path.join("uploads", "notes"), exist_ok=True)
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # If Cloudinary is configured, upload to cloud
+    if os.environ.get("CLOUDINARY_URL"):
+        try:
+            upload_result = cloudinary.uploader.upload(
+                file.file,
+                resource_type="raw",
+                public_id=f"notes/{note_id}_{filename}"
+            )
+            filepath = upload_result["secure_url"]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Cloudinary upload failed: {str(e)}"
+            )
+    else:
+        # Fallback: Save file locally
+        unique_filename = f"{uuid.uuid4()}{ext}"
+        filepath = f"uploads/notes/{unique_filename}"
+        os.makedirs(os.path.join("uploads", "notes"), exist_ok=True)
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         
     # Insert metadata in DB
-    note_id = str(uuid.uuid4())
     note_doc = {
         "_id": note_id,
         "title": title,
         "description": description,
         "filename": filename,
-        "filepath": f"uploads/notes/{unique_filename}",
+        "filepath": filepath,
         "uploaded_by": current_user["email"],
         "uploaded_at": datetime.now(timezone.utc)
     }
     await db.notes.insert_one(note_doc)
     
-    # Format response
     note_doc["id"] = note_doc["_id"]
     return note_doc
 
@@ -80,16 +109,23 @@ async def delete_note(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
         
-    # Delete from DB
     await db.notes.delete_one({"_id": note_id})
     
-    # Delete local file
     filepath = note.get("filepath")
-    if filepath and os.path.exists(filepath):
-        try:
-            os.remove(filepath)
-        except Exception:
-            pass
+    if filepath:
+        if filepath.startswith("http://") or filepath.startswith("https://"):
+            try:
+                public_id = get_cloudinary_public_id(filepath)
+                if public_id:
+                    cloudinary.uploader.destroy(public_id, resource_type="raw")
+            except Exception:
+                pass
+        else:
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
             
     return
 
@@ -99,7 +135,6 @@ async def upload_resume(
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user = Depends(require_role(["student"]))
 ):
-    # Validate extension
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
     if ext != ".pdf":
@@ -111,32 +146,55 @@ async def upload_resume(
     student_email = current_user["email"].lower()
     student_name = current_user.get("name", "Student")
     
-    # Save file locally
-    unique_filename = f"{student_email.replace('@', '_').replace('.', '_')}_{uuid.uuid4()}{ext}"
-    filepath = os.path.join("uploads", "resumes", unique_filename)
-    
-    os.makedirs(os.path.join("uploads", "resumes"), exist_ok=True)
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # Upsert in DB
+    # Check old resume to delete its file
     existing_resume = await db.resumes.find_one({"student_email": student_email})
-    
     if existing_resume:
         old_path = existing_resume.get("filepath")
-        if old_path and os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except Exception:
-                pass
-                
+        if old_path:
+            if old_path.startswith("http://") or old_path.startswith("https://"):
+                try:
+                    public_id = get_cloudinary_public_id(old_path)
+                    if public_id:
+                        cloudinary.uploader.destroy(public_id, resource_type="raw")
+                except Exception:
+                    pass
+            else:
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except Exception:
+                        pass
+                        
     resume_id = existing_resume["_id"] if existing_resume else str(uuid.uuid4())
     
+    # If Cloudinary is configured, upload to cloud
+    if os.environ.get("CLOUDINARY_URL"):
+        try:
+            unique_filename = f"{student_email.replace('@', '_').replace('.', '_')}_{uuid.uuid4()}{ext}"
+            upload_result = cloudinary.uploader.upload(
+                file.file,
+                resource_type="raw",
+                public_id=f"resumes/{unique_filename}"
+            )
+            filepath = upload_result["secure_url"]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Cloudinary upload failed: {str(e)}"
+            )
+    else:
+        # Fallback: Save file locally
+        unique_filename = f"{student_email.replace('@', '_').replace('.', '_')}_{uuid.uuid4()}{ext}"
+        filepath = f"uploads/resumes/{unique_filename}"
+        os.makedirs(os.path.join("uploads", "resumes"), exist_ok=True)
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
     resume_doc = {
         "student_email": student_email,
         "student_name": student_name,
         "filename": filename,
-        "filepath": f"uploads/resumes/{unique_filename}",
+        "filepath": filepath,
         "uploaded_at": datetime.now(timezone.utc)
     }
     
@@ -146,7 +204,6 @@ async def upload_resume(
         upsert=True
     )
     
-    # Retrieve the document to return correct ID
     updated_doc = await db.resumes.find_one({"student_email": student_email})
     updated_doc["id"] = str(updated_doc["_id"])
     return updated_doc
@@ -186,14 +243,26 @@ async def download_note(
         raise HTTPException(status_code=404, detail="Note not found")
         
     filepath = note["filepath"]
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="File not found on server")
-        
-    return FileResponse(
-        path=filepath,
-        filename=note["filename"],
-        media_type="application/octet-stream"
-    )
+    if filepath.startswith("http://") or filepath.startswith("https://"):
+        # Stream from Cloudinary
+        async def file_streamer():
+            async with httpx.AsyncClient() as client:
+                async with client.stream("GET", filepath) as r:
+                    async for chunk in r.iter_bytes():
+                        yield chunk
+        return StreamingResponse(
+            file_streamer(),
+            headers={"Content-Disposition": f'attachment; filename="{note["filename"]}"'},
+            media_type="application/octet-stream"
+        )
+    else:
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=404, detail="File not found on server")
+        return FileResponse(
+            path=filepath,
+            filename=note["filename"],
+            media_type="application/octet-stream"
+        )
 
 @router.get("/resumes/{resume_id}/download")
 async def download_resume(
@@ -203,10 +272,10 @@ async def download_resume(
 ):
     try:
         query_id = ObjectId(resume_id)
+        resume = await db.resumes.find_one({"_id": query_id})
     except Exception:
-        query_id = resume_id
-
-    resume = await db.resumes.find_one({"_id": query_id})
+        resume = None
+        
     if not resume:
         resume = await db.resumes.find_one({"_id": resume_id})
         
@@ -223,11 +292,23 @@ async def download_resume(
         )
         
     filepath = resume["filepath"]
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="File not found on server")
-        
-    return FileResponse(
-        path=filepath,
-        filename=resume["filename"],
-        media_type="application/octet-stream"
-    )
+    if filepath.startswith("http://") or filepath.startswith("https://"):
+        # Stream from Cloudinary
+        async def file_streamer():
+            async with httpx.AsyncClient() as client:
+                async with client.stream("GET", filepath) as r:
+                    async for chunk in r.iter_bytes():
+                        yield chunk
+        return StreamingResponse(
+            file_streamer(),
+            headers={"Content-Disposition": f'attachment; filename="{resume["filename"]}"'},
+            media_type="application/octet-stream"
+        )
+    else:
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=404, detail="File not found on server")
+        return FileResponse(
+            path=filepath,
+            filename=resume["filename"],
+            media_type="application/octet-stream"
+        )
