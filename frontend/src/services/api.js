@@ -244,9 +244,26 @@ export const api = {
       });
       return handleResponse(response);
     },
-    getBatchAttendance: async (batchId) => {
-      const response = await fetch(`${BASE_URL}/attendance/batch/${batchId}`, {
+    getBatchAttendance: async (batchId, date = '') => {
+      const url = date 
+        ? `${BASE_URL}/attendance/batch/${batchId}?date=${encodeURIComponent(date)}`
+        : `${BASE_URL}/attendance/batch/${batchId}`;
+      const response = await fetch(url, {
         headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    getBatchStudents: async (batchId) => {
+      const response = await fetch(`${BASE_URL}/attendance/batch/${batchId}/students`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    manualUpdate: async (payload) => {
+      const response = await fetch(`${BASE_URL}/attendance/manual-update`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload),
       });
       return handleResponse(response);
     },
@@ -266,6 +283,26 @@ export const api = {
         method: 'POST',
         headers: headers,
         body: formData,
+      });
+      return handleResponse(response);
+    },
+    getStats: async (batchId) => {
+      const response = await fetch(`${BASE_URL}/attendance/batch/${batchId}/stats`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    deleteAll: async (batchId) => {
+      const response = await fetch(`${BASE_URL}/attendance/batch/${batchId}/all`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    deleteDate: async (batchId, date) => {
+      const response = await fetch(`${BASE_URL}/attendance/batch/${batchId}/date/${encodeURIComponent(date)}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
       });
       return handleResponse(response);
     }
@@ -339,6 +376,98 @@ export const api = {
         method: 'POST',
         headers: headers,
         body: formData,
+      });
+      return handleResponse(response);
+    }
+  },
+
+  // Events & Calendar
+  events: {
+    list: async () => {
+      const response = await fetch(`${BASE_URL}/events/`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    create: async (eventData) => {
+      const response = await fetch(`${BASE_URL}/events/`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(eventData),
+      });
+      return handleResponse(response);
+    },
+    delete: async (id) => {
+      const response = await fetch(`${BASE_URL}/events/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (response.status === 204) return true;
+      return handleResponse(response);
+    }
+  },
+
+  // Documents & Resumes
+  documents: {
+    uploadNote: async (title, description, file) => {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('file', file);
+
+      const token = localStorage.getItem('academy_token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${BASE_URL}/documents/notes/upload`, {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+      return handleResponse(response);
+    },
+    listNotes: async () => {
+      const response = await fetch(`${BASE_URL}/documents/notes`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    deleteNote: async (noteId) => {
+      const response = await fetch(`${BASE_URL}/documents/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (response.status === 204) return true;
+      return handleResponse(response);
+    },
+    uploadResume: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('academy_token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${BASE_URL}/documents/resumes/upload`, {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+      return handleResponse(response);
+    },
+    listResumes: async () => {
+      const response = await fetch(`${BASE_URL}/documents/resumes`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    getMyResume: async () => {
+      const response = await fetch(`${BASE_URL}/documents/resumes/my-resume`, {
+        headers: getHeaders(),
       });
       return handleResponse(response);
     }

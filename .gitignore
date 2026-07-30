@@ -49,3 +49,7 @@ Thumbs.db
 git_run.py
 git_output.txt
 
+# Local uploads
+backend/uploads/
+
+

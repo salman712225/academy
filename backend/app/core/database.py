@@ -14,8 +14,10 @@ is_replica_set: bool = False
 
 async def connect_to_mongo():
     global client, db, is_replica_set
-    logger.info(f"Connecting to MongoDB at {settings.MONGODB_URL}...")
-    client = AsyncIOMotorClient(settings.MONGODB_URL, tlsCAFile=certifi.where())
+    mongo_kwargs = {}
+    if settings.MONGODB_URL.startswith("mongodb+srv://") or "ssl=true" in settings.MONGODB_URL.lower() or "tls=true" in settings.MONGODB_URL.lower():
+        mongo_kwargs["tlsCAFile"] = certifi.where()
+    client = AsyncIOMotorClient(settings.MONGODB_URL, **mongo_kwargs)
     db = client[settings.DATABASE_NAME]
     
     try:

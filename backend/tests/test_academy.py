@@ -28,6 +28,7 @@ async def setup_test_db():
     await db.batches.delete_many({})
     await db.attendance.delete_many({})
     await db.sent_emails.delete_many({})
+    await db.events.delete_many({})
     
     yield db
     
@@ -268,3 +269,278 @@ async def test_admin_records_manager(setup_test_db):
         # 8. Delete book
         delete_book_resp = await ac.delete(f"/api/library/books/{book_id}", headers=headers)
         assert delete_book_resp.status_code == 204
+
+
+@pytest.mark.anyio
+async def test_events_flow(setup_test_db):
+    db = setup_test_db
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Register dedicated Head & Student users
+        await ac.post("/api/auth/register", json={
+            "email": "head_event_admin@academy.com",
+            "name": "Event Head",
+            "role": "head",
+            "password": "AdminPassword123!"
+        })
+        await ac.post("/api/auth/register", json={
+            "email": "student_event_user@academy.com",
+            "name": "Event Student",
+            "role": "student",
+            "password": "Password123!"
+        })
+
+        # 1. Login as Area Head
+        login_resp = await ac.post("/api/auth/login", json={
+            "email": "head_event_admin@academy.com",
+            "password": "AdminPassword123!"
+        })
+        token = login_resp.json()["access_token"]
+        head_headers = {"Authorization": f"Bearer {token}"}
+
+        # 2. Create Event (Head)
+        event_date = (datetime.now(timezone.utc) + timedelta(days=5)).isoformat()
+        create_resp = await ac.post("/api/events/", headers=head_headers, json={
+            "name": "Hackathon 2026",
+            "date": event_date,
+            "description": "Annual academy code marathon",
+            "form_link": "https://example.com/register"
+        })
+        assert create_resp.status_code == 201
+        event_data = create_resp.json()
+        assert event_data["name"] == "Hackathon 2026"
+        assert event_data["created_by"] == "head_event_admin@academy.com"
+        event_id = event_data["id"]
+
+        # 3. List Events (Head)
+        list_resp = await ac.get("/api/events/", headers=head_headers)
+        assert list_resp.status_code == 200
+        events = list_resp.json()
+        assert len(events) >= 1
+        assert any(e["id"] == event_id for e in events)
+
+        # 4. Login as Student
+        student_login_resp = await ac.post("/api/auth/login", json={
+            "email": "student_event_user@academy.com",
+            "password": "Password123!"
+        })
+        student_token = student_login_resp.json()["access_token"]
+        student_headers = {"Authorization": f"Bearer {student_token}"}
+
+        # 5. Create Event (Student) - Should fail (403)
+        fail_create_resp = await ac.post("/api/events/", headers=student_headers, json={
+            "name": "Unauthorized Hackathon",
+            "date": event_date,
+            "description": "Should fail",
+            "form_link": "https://example.com"
+        })
+        assert fail_create_resp.status_code == 403
+
+        # 6. List Events (Student) - Should succeed (200)
+        student_list_resp = await ac.get("/api/events/", headers=student_headers)
+        assert student_list_resp.status_code == 200
+        student_events = student_list_resp.json()
+        assert any(e["id"] == event_id for e in student_events)
+
+        # 7. Delete Event (Student) - Should fail (403)
+        fail_delete_resp = await ac.delete(f"/api/events/{event_id}", headers=student_headers)
+        assert fail_delete_resp.status_code == 403
+
+        # 8. Delete Event (Head) - Should succeed (204)
+        delete_resp = await ac.delete(f"/api/events/{event_id}", headers=head_headers)
+        assert delete_resp.status_code == 204
+
+        # 9. Verify deletion in list
+        final_list_resp = await ac.get("/api/events/", headers=head_headers)
+        assert not any(e["id"] == event_id for e in final_list_resp.json())
+
+
+@pytest.mark.anyio
+async def test_manual_attendance_flow(setup_test_db):
+    db = setup_test_db
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Create Area Head Token to perform attendance actions
+        head_reg = await ac.post("/api/auth/register", json={
+            "email": "attendance_head@academy.com",
+            "name": "Attendance Head",
+            "role": "head",
+            "password": "AdminPassword123!"
+        })
+        
+        login_resp = await ac.post("/api/auth/login", json={
+            "email": "attendance_head@academy.com",
+            "password": "AdminPassword123!"
+        })
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Create a Batch
+        batch_resp = await ac.post("/api/batches/", headers=headers, json={
+            "name": "Batch-Attendance-Test",
+            "description": "Test Batch for Attendance",
+            "is_open": True
+        })
+        assert batch_resp.status_code == 201
+
+        # Register students under Batch-Attendance-Test
+        std1_resp = await ac.post("/api/auth/register", json={
+            "email": "student_att1@academy.com",
+            "name": "Student Att One",
+            "role": "student",
+            "password": "Password123!",
+            "batch_id": "Batch-Attendance-Test"
+        })
+        assert std1_resp.status_code == 201
+
+        std2_resp = await ac.post("/api/auth/register", json={
+            "email": "student_att2@academy.com",
+            "name": "Student Att Two",
+            "role": "student",
+            "password": "Password123!",
+            "batch_id": "Batch-Attendance-Test"
+        })
+        assert std2_resp.status_code == 201
+
+        # 1. Get batch students list
+        students_resp = await ac.get("/api/attendance/batch/Batch-Attendance-Test/students", headers=headers)
+        assert students_resp.status_code == 200
+        students_data = students_resp.json()
+        assert len(students_data) == 2
+        emails = [s["email"] for s in students_data]
+        assert "student_att1@academy.com" in emails
+        assert "student_att2@academy.com" in emails
+
+        # 2. Save manual attendance
+        manual_update_payload = {
+            "batch_id": "Batch-Attendance-Test",
+            "date": "2026-07-29",
+            "records": [
+                {
+                    "student_email": "student_att1@academy.com",
+                    "session_1": "Present",
+                    "session_2": "Absent",
+                    "session_3": "Late",
+                    "session_4": "None"
+                },
+                {
+                    "student_email": "student_att2@academy.com",
+                    "session_1": "Absent",
+                    "session_2": "Present",
+                    "session_3": "None",
+                    "session_4": "Present"
+                }
+            ]
+        }
+        update_resp = await ac.post("/api/attendance/manual-update", headers=headers, json=manual_update_payload)
+        assert update_resp.status_code == 200
+        assert "Successfully updated" in update_resp.json()["message"]
+
+        # 3. Retrieve batch attendance with date filter
+        get_resp = await ac.get("/api/attendance/batch/Batch-Attendance-Test?date=2026-07-29", headers=headers)
+        assert get_resp.status_code == 200
+        records = get_resp.json()
+        assert len(records) == 2
+        
+        rec1 = next(r for r in records if r["student_email"] == "student_att1@academy.com")
+        assert rec1["session_1"] == "Present"
+        assert rec1["session_2"] == "Absent"
+        assert rec1["session_3"] == "Late"
+        assert rec1["session_4"] == "None"
+
+        rec2 = next(r for r in records if r["student_email"] == "student_att2@academy.com")
+        assert rec2["session_1"] == "Absent"
+        assert rec2["session_2"] == "Present"
+        assert rec2["session_3"] == "None"
+        assert rec2["session_4"] == "Present"
+
+        # 4. Retrieve batch attendance with non-existent date filter
+        get_empty_resp = await ac.get("/api/attendance/batch/Batch-Attendance-Test?date=2026-07-30", headers=headers)
+        assert get_empty_resp.status_code == 200
+        assert len(get_empty_resp.json()) == 0
+
+        # 5. Retrieve my-attendance as student_att1
+        std1_login_resp = await ac.post("/api/auth/login", json={
+            "email": "student_att1@academy.com",
+            "password": "Password123!"
+        })
+        assert std1_login_resp.status_code == 200
+        std1_token = std1_login_resp.json()["access_token"]
+        std1_headers = {"Authorization": f"Bearer {std1_token}"}
+
+        my_att_resp = await ac.get("/api/attendance/my-attendance", headers=std1_headers)
+        assert my_att_resp.status_code == 200
+        my_att_data = my_att_resp.json()
+        assert my_att_data["student_email"] == "student_att1@academy.com"
+        assert my_att_data["session_wise_attendance_pct"] == 66.67
+        assert my_att_data["day_wise_attendance_pct"] == 100.0
+        assert my_att_data["total_conducted_sessions"] == 3
+        assert my_att_data["attended_sessions"] == 2
+        assert my_att_data["total_conducted_days"] == 1
+        assert my_att_data["attended_days"] == 1
+
+
+@pytest.mark.anyio
+async def test_trainer_attendance_constraints(setup_test_db):
+    db = setup_test_db
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Register a new Trainer
+        trainer_reg = await ac.post("/api/auth/register", json={
+            "email": "trainer_test@academy.com",
+            "name": "Trainer Test",
+            "role": "trainer",
+            "password": "TrainerPassword123!",
+            "classes_assigned": ["Batch-Attendance-Test"]
+        })
+        assert trainer_reg.status_code == 201
+        
+        # Login Trainer
+        login_resp = await ac.post("/api/auth/login", json={
+            "email": "trainer_test@academy.com",
+            "password": "TrainerPassword123!"
+        })
+        assert login_resp.status_code == 200
+        trainer_token = login_resp.json()["access_token"]
+        trainer_headers = {"Authorization": f"Bearer {trainer_token}"}
+        
+        # Today's date
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. Trainer updates today's attendance -> Should succeed (200)
+        manual_payload_today = {
+            "batch_id": "Batch-Attendance-Test",
+            "date": today_str,
+            "records": [
+                {
+                    "student_email": "student_att1@academy.com",
+                    "session_1": "Present",
+                    "session_2": "Present",
+                    "session_3": "Present",
+                    "session_4": "Present"
+                }
+            ]
+        }
+        resp_today = await ac.post("/api/attendance/manual-update", headers=trainer_headers, json=manual_payload_today)
+        assert resp_today.status_code == 200
+        
+        # 2. Trainer updates past date attendance -> Should fail (403 Forbidden)
+        manual_payload_past = {
+            "batch_id": "Batch-Attendance-Test",
+            "date": "2026-07-28",
+            "records": [
+                {
+                    "student_email": "student_att1@academy.com",
+                    "session_1": "Absent",
+                    "session_2": "Absent",
+                    "session_3": "Absent",
+                    "session_4": "Absent"
+                }
+            ]
+        }
+        resp_past = await ac.post("/api/attendance/manual-update", headers=trainer_headers, json=manual_payload_past)
+        assert resp_past.status_code == 403
+        assert "Only the Area Head has permission to update past or future attendance records." in resp_past.json()["detail"]
+
+
+

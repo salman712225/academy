@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import os
 from fastapi import FastAPI, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
@@ -16,6 +18,8 @@ from app.modules.leads.router import router as leads_router
 from app.modules.attendance.router import router as attendance_router
 from app.modules.emails.router import router as emails_router
 from app.modules.bulk_upload.router import router as bulk_upload_router
+from app.modules.events.router import router as events_router
+from app.modules.documents.router import router as documents_router
 
 # Import Background worker
 from app.workers.due_checker import schedule_due_checker_daemon, run_daily_due_check
@@ -83,7 +87,16 @@ app.include_router(leads_router, prefix=settings.API_V1_STR)
 app.include_router(attendance_router, prefix=settings.API_V1_STR)
 app.include_router(emails_router, prefix=settings.API_V1_STR)
 app.include_router(bulk_upload_router, prefix=settings.API_V1_STR)
+app.include_router(events_router, prefix=settings.API_V1_STR)
+app.include_router(documents_router, prefix=settings.API_V1_STR)
 app.include_router(test_router, prefix=settings.API_V1_STR)
+
+# Ensure uploads directories exist
+os.makedirs(os.path.join("uploads", "notes"), exist_ok=True)
+os.makedirs(os.path.join("uploads", "resumes"), exist_ok=True)
+
+# Mount static uploads
+app.mount("/static/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/")
 async def root():

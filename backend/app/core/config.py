@@ -9,8 +9,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
     # Database
-    MONGODB_URL: str = os.getenv("MONGODB_URL", os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
+    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_URL: str = ""
     DATABASE_NAME: str = "academy_db"
+
+    def model_post_init(self, __context):
+        if not self.MONGODB_URL:
+            self.MONGODB_URL = self.MONGODB_URI
 
     # Default Seed Head Account
     SEED_HEAD_EMAIL: str = "head@academy.com"
