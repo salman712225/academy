@@ -12,10 +12,13 @@ class Settings(BaseSettings):
     MONGODB_URI: str = "mongodb://localhost:27017"
     MONGODB_URL: str = ""
     DATABASE_NAME: str = "academy_db"
+    CLOUDINARY_URL: str = ""
 
     def model_post_init(self, __context):
         if not self.MONGODB_URL:
             self.MONGODB_URL = self.MONGODB_URI
+        if self.CLOUDINARY_URL:
+            os.environ["CLOUDINARY_URL"] = self.CLOUDINARY_URL
 
     # Default Seed Head Account
     SEED_HEAD_EMAIL: str = "head@academy.com"

@@ -245,11 +245,32 @@ async def download_note(
     filepath = note["filepath"]
     if filepath.startswith("http://") or filepath.startswith("https://"):
         # Stream from Cloudinary
+        client = httpx.AsyncClient()
+        try:
+            req = client.build_request("GET", filepath)
+            r = await client.send(req, stream=True, follow_redirects=True)
+            if r.status_code != 200:
+                await r.aclose()
+                await client.aclose()
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND if r.status_code == 404 else status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cloudinary file not accessible (Status {r.status_code})"
+                )
+        except httpx.HTTPError as e:
+            await client.aclose()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to connect to Cloudinary: {str(e)}"
+            )
+
         async def file_streamer():
-            async with httpx.AsyncClient() as client:
-                async with client.stream("GET", filepath) as r:
-                    async for chunk in r.iter_bytes():
-                        yield chunk
+            try:
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+            finally:
+                await r.aclose()
+                await client.aclose()
+
         return StreamingResponse(
             file_streamer(),
             headers={"Content-Disposition": f'attachment; filename="{note["filename"]}"'},
@@ -294,11 +315,32 @@ async def download_resume(
     filepath = resume["filepath"]
     if filepath.startswith("http://") or filepath.startswith("https://"):
         # Stream from Cloudinary
+        client = httpx.AsyncClient()
+        try:
+            req = client.build_request("GET", filepath)
+            r = await client.send(req, stream=True, follow_redirects=True)
+            if r.status_code != 200:
+                await r.aclose()
+                await client.aclose()
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND if r.status_code == 404 else status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cloudinary file not accessible (Status {r.status_code})"
+                )
+        except httpx.HTTPError as e:
+            await client.aclose()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to connect to Cloudinary: {str(e)}"
+            )
+
         async def file_streamer():
-            async with httpx.AsyncClient() as client:
-                async with client.stream("GET", filepath) as r:
-                    async for chunk in r.iter_bytes():
-                        yield chunk
+            try:
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+            finally:
+                await r.aclose()
+                await client.aclose()
+
         return StreamingResponse(
             file_streamer(),
             headers={"Content-Disposition": f'attachment; filename="{resume["filename"]}"'},

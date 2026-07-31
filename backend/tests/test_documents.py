@@ -8,6 +8,9 @@ from app.core.config import settings
 from app.core.database import get_db, connect_to_mongo
 
 settings.DATABASE_NAME = "academy_db_test"
+settings.CLOUDINARY_URL = ""
+if "CLOUDINARY_URL" in os.environ:
+    del os.environ["CLOUDINARY_URL"]
 
 @pytest.fixture(scope="module")
 def anyio_backend():
