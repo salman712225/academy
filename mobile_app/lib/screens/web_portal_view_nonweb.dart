@@ -26,9 +26,9 @@ class WebPortalView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               SelectableText(
-                'http://localhost:5173/',
+                'https://academy-hxbc.onrender.com/',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).primaryColor,
                 ),

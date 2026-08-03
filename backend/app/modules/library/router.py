@@ -223,7 +223,7 @@ async def get_my_fines(
         doc["id"] = str(doc["_id"])
         
         # Dynamically calculate current ongoing fine if lent but overdue (not returned yet)
-        if doc["status"] == "lent":
+        if doc["status"] in ["lent", "overdue"]:
             due_date = doc["due_date"]
             if due_date.tzinfo is None:
                 due_date = due_date.replace(tzinfo=timezone.utc)
@@ -259,7 +259,7 @@ async def list_active_lendings(
         doc["id"] = str(doc["_id"])
         
         # Dynamically update overdue calculations
-        if doc["status"] == "lent":
+        if doc["status"] in ["lent", "overdue"]:
             due_date = doc["due_date"]
             if due_date.tzinfo is None:
                 due_date = due_date.replace(tzinfo=timezone.utc)

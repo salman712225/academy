@@ -9,13 +9,17 @@ import 'package:open_file/open_file.dart';
 class ApiService {
   // Determine Base URL depending on Platform (Android emulator loopback vs standard localhost)
   static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:8000/api';
-    } else if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000/api';
-    } else {
-      return 'http://localhost:8000/api';
-    }
+    // Deployed Render cloud backend URL
+    return 'https://academy-backend-rwez.onrender.com/api';
+    
+    // Local development fallback (uncomment to use local backend):
+    // if (kIsWeb) {
+    //   return 'http://localhost:8000/api';
+    // } else if (Platform.isAndroid) {
+    //   return 'http://10.0.2.2:8000/api';
+    // } else {
+    //   return 'http://localhost:8000/api';
+    // }
   }
 
   // Save authentication token to persistent storage

@@ -60,9 +60,13 @@ async def run_daily_due_check(db: AsyncIOMotorDatabase):
                 await log_and_send_email(db, email_in)
                 count_notices += 1
                 
-        elif days_lent > 5:
-            # 10 RS per day overdue starting from the 6th day
-            overdue_days = days_lent - 5
+        elif today > due_date:
+            diff = today - due_date
+            overdue_days = diff.days
+            if diff.total_seconds() > 0 and overdue_days == 0:
+                overdue_days = 1
+            elif diff.total_seconds() > 0 and diff.total_seconds() % 86400 > 0:
+                overdue_days += 1
             fine = float(overdue_days * 10)
             
             await db.lendings.update_one(
