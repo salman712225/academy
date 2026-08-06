@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+motor
+pymongo
+openpyxl
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pydantic
+pydantic-settings
+email-validator
+pytest
+httpx
+cloudinary
+pypdf
+python-docx
