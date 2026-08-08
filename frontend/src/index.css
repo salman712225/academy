@@ -864,3 +864,71 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
 }
 
+/* Audiobook styling enhancements */
+.transcript-paragraph.audiobook-intro {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px dashed rgba(16, 185, 129, 0.3);
+  color: var(--text-primary);
+}
+
+.transcript-paragraph.audiobook-intro:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.transcript-paragraph.audiobook-intro.active-speech {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgb(16, 185, 129);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.transcript-paragraph.metadata-skipped {
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+}
+
+.transcript-paragraph.metadata-skipped:hover {
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.transcript-paragraph.metadata-skipped.active-speech {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-indigo);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.paragraph-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-intro {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-metadata {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-skipped-status {
+  float: right;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+

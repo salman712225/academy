@@ -6068,6 +6068,80 @@ function DigitalLibraryPanel({ user }) {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentParagraphIndex, setCurrentParagraphIndex] = React.useState(0);
   const [paragraphs, setParagraphs] = React.useState([]);
+  const [skipFrontMatter, setSkipFrontMatter] = React.useState(true);
+
+  // Helper to categorize text and filter out PDF artifacts (running headers, page numbers, copyright/TOC)
+  const processBookParagraphs = (extractedText, title, author) => {
+    if (!extractedText) return [];
+    
+    const rawParas = extractedText
+      .split('\n\n')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+      
+    const processed = [];
+    const normTitle = title ? title.toLowerCase() : '';
+    const normAuthor = author ? author.toLowerCase() : '';
+    
+    rawParas.forEach((p, idx) => {
+      let isMetadata = false;
+      let metadataType = null;
+      const lowerP = p.toLowerCase();
+      
+      // Heuristic 1: Copyright & publisher boilerplate
+      if (
+        lowerP.includes('copyright') ||
+        lowerP.includes('©') ||
+        lowerP.includes('all rights reserved') ||
+        lowerP.includes('isbn') ||
+        lowerP.includes('first published') ||
+        lowerP.includes('printed in') ||
+        lowerP.includes('published by') ||
+        lowerP.includes('cataloging-in-publication')
+      ) {
+        isMetadata = true;
+        metadataType = 'Copyright & Publisher Info';
+      }
+      // Heuristic 2: Table of Contents / Index boilerplate (with trailing page numbers or series of dots)
+      else if (
+        /(\.\s*){4,}/.test(p) ||
+        /^(chapter|chap\.|section)\s+\d+/i.test(p) && (lowerP.includes('page') || /\d+$/.test(lowerP)) ||
+        (lowerP.length < 150 && (lowerP.includes('table of contents') || lowerP.includes('contents') || lowerP.includes('index') || lowerP.includes('bibliography')))
+      ) {
+        isMetadata = true;
+        metadataType = 'Table of Contents & Index';
+      }
+      // Heuristic 3: Running headers/footers & isolated page numbers
+      else if (
+        /^\d+$/.test(p) ||
+        /^(page|pg\.?)\s*\d+$/i.test(p) ||
+        /^\d+\s*\|\s*/.test(p) ||
+        (normTitle && lowerP === normTitle) ||
+        (normAuthor && lowerP === normAuthor)
+      ) {
+        isMetadata = true;
+        metadataType = 'Page Header / Number';
+      }
+      // Heuristic 4: Repeating title cover details in the first few paragraphs
+      else if (idx < 5 && (
+        lowerP.includes(normTitle) || 
+        lowerP.includes(normAuthor) ||
+        lowerP.length < 60
+      )) {
+        isMetadata = true;
+        metadataType = 'Title & Cover Details';
+      }
+      
+      processed.push({
+        text: p,
+        isMetadata,
+        metadataType,
+        isIntro: false
+      });
+    });
+    
+    return processed;
+  };
   
   // Fetch book list
   const fetchBooks = async () => {
@@ -6122,13 +6196,24 @@ function DigitalLibraryPanel({ user }) {
       setSelectedBook(detailedBook);
       
       if (detailedBook.extracted_text) {
-        const paras = detailedBook.extracted_text
-          .split('\n\n')
-          .map(p => p.trim())
-          .filter(p => p.length > 0);
-        setParagraphs(paras);
+        const processed = processBookParagraphs(detailedBook.extracted_text, detailedBook.title, detailedBook.author);
+        
+        // Add premium virtual audiobook intro
+        const introPara = {
+          text: `This is the audiobook edition of "${detailedBook.title}" by ${detailedBook.author}. Let's begin the narration.`,
+          isIntro: true,
+          isMetadata: false,
+          metadataType: null
+        };
+        
+        setParagraphs([introPara, ...processed]);
       } else {
-        setParagraphs(['(No readable text found or extracted from this PDF book)']);
+        setParagraphs([{
+          text: '(No readable text found or extracted from this PDF book)',
+          isIntro: false,
+          isMetadata: false,
+          metadataType: null
+        }]);
       }
       
       setCurrentParagraphIndex(0);
@@ -6154,7 +6239,7 @@ function DigitalLibraryPanel({ user }) {
     
     setCurrentParagraphIndex(index);
     
-    const textToSpeak = paragraphs[index];
+    const textToSpeak = paragraphs[index].text || paragraphs[index];
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     
     // Set voice
@@ -6165,9 +6250,16 @@ function DigitalLibraryPanel({ user }) {
     utterance.rate = rate;
     
     utterance.onend = () => {
-      // Auto advance to next paragraph
-      if (index + 1 < paragraphs.length) {
-        speakParagraph(index + 1);
+      // Auto advance to next paragraph, skipping metadata if enabled
+      let nextIndex = index + 1;
+      if (skipFrontMatter) {
+        while (nextIndex < paragraphs.length && paragraphs[nextIndex].isMetadata) {
+          nextIndex++;
+        }
+      }
+      
+      if (nextIndex < paragraphs.length) {
+        speakParagraph(nextIndex);
       } else {
         setIsPlaying(false);
       }
@@ -6211,14 +6303,26 @@ function DigitalLibraryPanel({ user }) {
   };
 
   const handlePrevParagraph = () => {
-    if (currentParagraphIndex > 0) {
-      speakParagraph(currentParagraphIndex - 1);
+    let prevIndex = currentParagraphIndex - 1;
+    if (skipFrontMatter) {
+      while (prevIndex >= 0 && paragraphs[prevIndex].isMetadata) {
+        prevIndex--;
+      }
+    }
+    if (prevIndex >= 0) {
+      speakParagraph(prevIndex);
     }
   };
 
   const handleNextParagraph = () => {
-    if (currentParagraphIndex < paragraphs.length - 1) {
-      speakParagraph(currentParagraphIndex + 1);
+    let nextIndex = currentParagraphIndex + 1;
+    if (skipFrontMatter) {
+      while (nextIndex < paragraphs.length && paragraphs[nextIndex].isMetadata) {
+        nextIndex++;
+      }
+    }
+    if (nextIndex < paragraphs.length) {
+      speakParagraph(nextIndex);
     }
   };
 
@@ -6506,8 +6610,8 @@ function DigitalLibraryPanel({ user }) {
                 <div className={`reader-text-view theme-${readerTheme}`}>
                   <div style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.1)', fontSize: '0.8rem', opacity: 0.7 }}>Extracted Readable Text</div>
                   <div className="reader-content" style={{ fontSize: `${readerFontSize}px` }}>
-                    {paragraphs.map((p, idx) => (
-                      <p key={idx} style={{ marginBottom: '1.2em' }}>{p}</p>
+                    {paragraphs.filter(p => !p.isIntro).map((p, idx) => (
+                      <p key={idx} style={{ marginBottom: '1.2em' }}>{p.text || p}</p>
                     ))}
                   </div>
                 </div>
@@ -6607,6 +6711,23 @@ function DigitalLibraryPanel({ user }) {
                   </select>
                 </div>
 
+                {/* Premium Audiobook Toggle */}
+                <div className="slider-container" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(99, 102, 241, 0.05)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
+                  <input
+                    type="checkbox"
+                    id="skipFrontMatterToggle"
+                    checked={skipFrontMatter}
+                    onChange={(e) => setSkipFrontMatter(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-indigo)' }}
+                  />
+                  <label htmlFor="skipFrontMatterToggle" style={{ fontSize: '0.8rem', fontWeight: '500', color: 'white', cursor: 'pointer', userSelect: 'none' }}>
+                    ✨ Premium Narrator Flow
+                    <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 'normal', marginTop: '2px' }}>
+                      Skips cover details, copyright pages, & TOC
+                    </span>
+                  </label>
+                </div>
+
                 <div style={{ marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   Paragraph: {currentParagraphIndex + 1} / {paragraphs.length}
                 </div>
@@ -6618,17 +6739,48 @@ function DigitalLibraryPanel({ user }) {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Click on any paragraph card below to jump narration directly to that sentence.</p>
                 
                 <div className="audiobook-transcript">
-                  {paragraphs.map((p, idx) => (
-                    <div
-                      key={idx}
-                      id={`para-${idx}`}
-                      className={`transcript-paragraph ${currentParagraphIndex === idx ? 'active-speech' : ''}`}
-                      onClick={() => speakParagraph(idx)}
-                    >
-                      <div style={{ fontSize: '0.75rem', opacity: 0.5, marginBottom: '4px', fontWeight: 'bold' }}>Section {idx + 1}</div>
-                      {p}
-                    </div>
-                  ))}
+                  {paragraphs.map((p, idx) => {
+                    let cardClass = "transcript-paragraph";
+                    if (currentParagraphIndex === idx) {
+                      cardClass += " active-speech";
+                    }
+                    
+                    if (p.isIntro) {
+                      cardClass += " audiobook-intro";
+                    } else if (p.isMetadata && skipFrontMatter) {
+                      cardClass += " metadata-skipped";
+                    }
+                    
+                    return (
+                      <div
+                        key={idx}
+                        id={`para-${idx}`}
+                        className={cardClass}
+                        onClick={() => speakParagraph(idx)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.5, fontWeight: 'bold' }}>
+                            {p.isIntro ? "🎙️ NARRATION START" : `Section ${idx}`}
+                          </span>
+                          
+                          {p.isIntro && (
+                            <span className="paragraph-badge badge-intro">Audiobook Intro</span>
+                          )}
+                          
+                          {p.isMetadata && (
+                            <span className="paragraph-badge badge-metadata">
+                              {p.metadataType || "Metadata"}
+                            </span>
+                          )}
+                          
+                          {p.isMetadata && skipFrontMatter && (
+                            <span className="badge-skipped-status">Skipped in Autoplay</span>
+                          )}
+                        </div>
+                        {p.text || p}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
