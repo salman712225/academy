@@ -4485,9 +4485,9 @@ function ResumeBuilderPanel({ user }) {
   if (loading) return <p>Loading Master Resume Details...</p>;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '28px' }}>
+    <div id="resume-builder-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '28px' }}>
       {/* Wizard inputs */}
-      <div className="glass-card" style={{ height: 'fit-content', padding: '24px' }}>
+      <div id="resume-editor-column" className="glass-card" style={{ height: 'fit-content', padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3>Master Profile Editor</h3>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -4741,8 +4741,8 @@ function ResumeBuilderPanel({ user }) {
       </div>
 
       {/* Preview and templates exports */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div className="glass-card" style={{ padding: '20px' }}>
+      <div id="resume-preview-column" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div id="resume-export-options-card" className="glass-card" style={{ padding: '20px' }}>
           <h3 style={{ marginBottom: '12px', color: 'var(--text-primary)' }}>Export & Print Options</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
             <button className="btn btn-secondary" onClick={handleDownloadLaTeX} style={{ padding: '8px', fontSize: '0.8rem' }}>
@@ -4775,8 +4775,8 @@ function ResumeBuilderPanel({ user }) {
         </div>
 
         {/* Live Resume Sheet Preview */}
-        <div className="glass-card" style={{ flexGrow: 1, padding: '0px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div id="resume-preview-card" className="glass-card" style={{ flexGrow: 1, padding: '0px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+          <div id="resume-preview-header" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>LIVE PREVIEW SHEET</span>
             <div style={{ display: 'flex', gap: '4px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>

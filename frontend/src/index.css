@@ -942,20 +942,39 @@ h1, h2, h3, h4, h5, h6 {
     print-color-adjust: exact !important;
   }
 
-  /* Hide everything on the page */
-  body * {
-    visibility: hidden !important;
+  /* Hide all main web UI containers and layout sidebars/footers/headers */
+  .sidebar, .navbar, nav, header, footer,
+  #resume-editor-column, #resume-export-options-card, #resume-preview-header {
+    display: none !important;
   }
 
-  /* Re-enable visibility only for the resume print area and its children */
-  #resume-print-area,
-  #resume-print-area * {
-    visibility: visible !important;
+  /* Reset layout wrappers to prevent them from taking up height or width */
+  #root, .app-container, .main-content, .tab-content {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
   }
 
-  /* Style and position the print area to span the full page width and height */
+  #resume-builder-grid, #resume-preview-column, #resume-preview-card {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* Ensure the print area is positioned cleanly at the top-left */
   #resume-print-area {
-    position: absolute !important;
+    display: block !important;
+    position: relative !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
