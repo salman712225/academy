@@ -73,7 +73,10 @@ async def get_user_llm_config_or_raise(db: AsyncIOMotorDatabase, email: str):
         )
     return active_provider, api_key
 
-def escape_latex(text: str) -> str:
+def escape_latex(text: Any) -> str:
+    if text is None:
+        return ""
+    text = str(text)
     if not text:
         return ""
     replacements = {
@@ -95,84 +98,210 @@ def escape_latex(text: str) -> str:
             text = text.replace(char, rep)
     return text
 
+def escape_latex_url(url: Any) -> str:
+    if url is None:
+        return ""
+    url = str(url)
+    if not url:
+        return ""
+    replacements = {
+        "&": "\\&",
+        "%": "\\%",
+        "$": "\\$",
+        "#": "\\#",
+        "_": "\\_",
+        "~": "\\textasciitilde{}",
+        "^": "\\textasciicircum{}",
+    }
+    for char, rep in replacements.items():
+        url = url.replace(char, rep)
+    return url
+
 def generate_latex_source(data: Dict[str, Any]) -> str:
-    personal = data.get("personal_info", {})
-    summary = data.get("summary", "")
-    experience = data.get("experience", [])
-    education = data.get("education", [])
-    skills = data.get("skills", [])
-    projects = data.get("projects", [])
-    certifications = data.get("certifications", [])
-    template_name = data.get("template", "modern").lower()
+    personal = data.get("personal_info") or {}
+    summary = data.get("summary") or ""
+    experience = data.get("experience") or []
+    education = data.get("education") or []
+    skills = data.get("skills") or []
+    projects = data.get("projects") or []
+    certifications = data.get("certifications") or []
+    template_name = str(data.get("template") or "modern").lower()
 
     # Pre-compile parts for Custom Template placeholders
-    comp_name = escape_latex(personal.get("name", ""))
-    comp_title = escape_latex(personal.get("title", ""))
-    comp_email = escape_latex(personal.get("email", ""))
-    comp_phone = escape_latex(personal.get("phone", ""))
-    comp_location = escape_latex(personal.get("location", ""))
-    comp_website = escape_latex(personal.get("website", ""))
+    comp_name = escape_latex(personal.get("name") or "")
+    comp_title = escape_latex(personal.get("title") or "")
+    comp_email = escape_latex(personal.get("email") or "")
+    comp_phone = escape_latex(personal.get("phone") or "")
+    comp_location = escape_latex(personal.get("location") or "")
+    comp_website = escape_latex(personal.get("website") or "")
     
     comp_summary = escape_latex(summary)
     
     comp_exp = ""
     for exp in experience:
-        comp_exp += r"\textbf{" + escape_latex(exp.get("role", "")) + r"} \hfill " + escape_latex(exp.get("startDate", "")) + " -- " + escape_latex(exp.get("endDate", "")) + r" \\" + "\n"
-        comp_exp += r"\textit{" + escape_latex(exp.get("company", "")) + r"} \hfill " + escape_latex(exp.get("location", "")) + "\n"
-        comp_exp += r"\begin{itemize}[noitemsep,topsep=2pt,leftmargin=15pt]" + "\n"
-        bullets = exp.get("description", "").split("\n")
-        for bullet in bullets:
-            bullet = bullet.strip().lstrip("-*•").strip()
-            if bullet:
-                comp_exp += r"    \item " + escape_latex(bullet) + "\n"
-        comp_exp += r"\end{itemize}" + "\n"
-        comp_exp += r"\vspace{5pt}" + "\n"
+        role = exp.get("role") or ""
+        company = exp.get("company") or ""
+        start_date = exp.get("startDate") or ""
+        end_date = exp.get("endDate") or ""
+        location = exp.get("location") or ""
+        desc = exp.get("description") or ""
+        
+        if role or company or start_date or end_date or location or desc:
+            date_parts = []
+            if start_date:
+                date_parts.append(escape_latex(start_date))
+            if end_date:
+                date_parts.append(escape_latex(end_date))
+            date_str = " -- ".join(date_parts)
+            
+            if role:
+                comp_exp += r"\textbf{" + escape_latex(role) + r"}"
+            if date_str:
+                comp_exp += r" \hfill " + date_str
+            comp_exp += r" \\" + "\n"
+            
+            if company:
+                comp_exp += r"\textit{" + escape_latex(company) + r"}"
+            if location:
+                comp_exp += r" \hfill " + escape_latex(location)
+            comp_exp += "\n"
+            
+            if desc:
+                comp_exp += r"\begin{itemize}[noitemsep,topsep=2pt,leftmargin=15pt]" + "\n"
+                bullets = desc.split("\n")
+                for bullet in bullets:
+                    bullet = bullet.strip().lstrip("-*•").strip()
+                    if bullet:
+                        comp_exp += r"    \item " + escape_latex(bullet) + "\n"
+                comp_exp += r"\end{itemize}" + "\n"
+            comp_exp += r"\vspace{5pt}" + "\n"
 
     comp_edu = ""
     for edu in education:
-        comp_edu += r"\textbf{" + escape_latex(edu.get("institution", "")) + r"} \hfill " + escape_latex(edu.get("startDate", "")) + " -- " + escape_latex(edu.get("endDate", "")) + r" \\" + "\n"
-        comp_edu += r"\textit{" + escape_latex(edu.get("degree", "")) + " in " + escape_latex(edu.get("major", "")) + r"} \hfill " + escape_latex(edu.get("gpa", "")) + "\n"
-        comp_edu += r"\vspace{5pt}" + "\n"
+        inst = edu.get("institution") or ""
+        degree = edu.get("degree") or ""
+        major = edu.get("major") or ""
+        start_date = edu.get("startDate") or ""
+        end_date = edu.get("endDate") or ""
+        gpa = edu.get("gpa") or ""
+        
+        if inst or degree or major or start_date or end_date or gpa:
+            date_parts = []
+            if start_date:
+                date_parts.append(escape_latex(start_date))
+            if end_date:
+                date_parts.append(escape_latex(end_date))
+            date_str = " -- ".join(date_parts)
+            
+            if inst:
+                comp_edu += r"\textbf{" + escape_latex(inst) + r"}"
+            if date_str:
+                comp_edu += r" \hfill " + date_str
+            comp_edu += r" \\" + "\n"
+            
+            deg_parts = []
+            if degree:
+                deg_parts.append(escape_latex(degree))
+            if major:
+                deg_parts.append("in " + escape_latex(major))
+            
+            if deg_parts:
+                comp_edu += r"\textit{" + " ".join(deg_parts) + r"}"
+            if gpa:
+                comp_edu += r" \hfill GPA/Marks: " + escape_latex(gpa)
+            comp_edu += "\n\\vspace{5pt}\n"
 
-    comp_skills = r"\begin{description}[noitemsep,leftmargin=0pt]" + "\n"
+    comp_skills = ""
+    valid_skills = []
     for sk in skills:
-        category = sk.get("category", "General")
-        skills_list = sk.get("list", "")
-        comp_skills += r"    \item[\textbf{" + escape_latex(category) + r"}:] " + escape_latex(skills_list) + "\n"
-    comp_skills += r"\end{description}"
+        category = sk.get("category") or ""
+        skills_list = sk.get("list") or ""
+        if category or skills_list:
+            valid_skills.append((category, skills_list))
+            
+    if valid_skills:
+        comp_skills = r"\begin{description}[noitemsep,leftmargin=0pt]" + "\n"
+        for category, skills_list in valid_skills:
+            cat_label = escape_latex(category) if category else "General"
+            comp_skills += r"    \item[\textbf{" + cat_label + r"}:] " + escape_latex(skills_list) + "\n"
+        comp_skills += r"\end{description}"
 
     comp_proj = ""
     for proj in projects:
-        title = proj.get("title", "")
-        role = proj.get("role", "")
-        link = proj.get("link", "")
-        desc = proj.get("description", "")
-        title_str = title
-        if link:
-            title_str = r"\href{" + link + r"}{" + title + r"}"
-        comp_proj += r"\textbf{" + title_str + r"}"
-        if role:
-            comp_proj += r" -- \textit{" + escape_latex(role) + r"}"
-        comp_proj += r" \\" + "\n" + escape_latex(desc) + r"\vspace{5pt}" + "\n"
+        title = proj.get("title") or ""
+        role = proj.get("role") or ""
+        link = proj.get("link") or ""
+        desc = proj.get("description") or ""
+        
+        if title or role or link or desc:
+            title_str = ""
+            if title:
+                if link:
+                    title_str = r"\href{" + escape_latex_url(link) + r"}{" + escape_latex(title) + r"}"
+                else:
+                    title_str = escape_latex(title)
+            
+            if title_str:
+                comp_proj += r"\textbf{" + title_str + r"}"
+                if role:
+                    comp_proj += r" -- \textit{" + escape_latex(role) + r"}"
+                comp_proj += r" \\" + "\n"
+            elif role:
+                comp_proj += r"\textbf{\textit{" + escape_latex(role) + r"}} \\" + "\n"
+                
+            if desc:
+                if "\n" in desc:
+                    comp_proj += r"\begin{itemize}[noitemsep,topsep=2pt,leftmargin=15pt]" + "\n"
+                    bullets = desc.split("\n")
+                    for bullet in bullets:
+                        bullet = bullet.strip().lstrip("-*•").strip()
+                        if bullet:
+                            comp_proj += r"    \item " + escape_latex(bullet) + "\n"
+                    comp_proj += r"\end{itemize}" + "\n"
+                else:
+                    comp_proj += escape_latex(desc) + "\n"
+            comp_proj += r"\vspace{5pt}" + "\n"
 
-    comp_certs = r"\begin{itemize}[noitemsep,topsep=2pt,leftmargin=15pt]" + "\n"
+    comp_certs = ""
+    cert_items = []
     for cert in certifications:
-        name = cert.get("name", "")
-        issuer = cert.get("issuer", "")
-        date = cert.get("date", "")
-        cert_str = name
+        name = cert.get("name") or ""
+        issuer = cert.get("issuer") or ""
+        date = cert.get("date") or ""
+        parts = []
+        if name:
+            parts.append(name)
         if issuer:
-            cert_str += f" - {issuer}"
+            parts.append(issuer)
         if date:
-            cert_str += f" ({date})"
-        comp_certs += r"    \item " + escape_latex(cert_str) + "\n"
-    comp_certs += r"\end{itemize}"
+            parts.append(f"({date})")
+        if parts:
+            cert_str = " - ".join(parts[:-1]) + f" {parts[-1]}" if len(parts) > 1 and parts[-1].startswith("(") else " - ".join(parts)
+            cert_items.append(cert_str)
+            
+    if cert_items:
+        comp_certs = r"\begin{itemize}[noitemsep,topsep=2pt,leftmargin=15pt]" + "\n"
+        for item in cert_items:
+            comp_certs += r"    \item " + escape_latex(item) + "\n"
+        comp_certs += r"\end{itemize}"
+
+    # Build Header parts dynamically to prevent dangling separators
+    header_parts = []
+    if personal.get("email"):
+        header_parts.append(r"Email: \href{mailto:" + escape_latex_url(personal.get("email")) + r"}{" + comp_email + r"}")
+    if personal.get("phone"):
+        header_parts.append(r"Phone: " + comp_phone)
+    if personal.get("location"):
+        header_parts.append(r"Location: " + comp_location)
+    if personal.get("website"):
+        header_parts.append(r"Website: \href{" + escape_latex_url(personal.get("website")) + r"}{" + comp_website + r"}")
+    
+    header_str = " | ".join(header_parts)
 
     # If user selected custom template and provided markup
     if template_name == "custom":
         custom_latex = data.get("custom_latex_template", "")
         if custom_latex and custom_latex.strip():
-            # Replacements
             result = custom_latex
             result = result.replace("{{NAME}}", comp_name)
             result = result.replace("{{TITLE}}", comp_title)
@@ -190,7 +319,6 @@ def generate_latex_source(data: Dict[str, Any]) -> str:
 
     # Standard / Professional / Academic Predefined Templates
     if template_name == "professional":
-        # Left-Aligned layout with Navy Accent Color
         latex = r"""\documentclass[10pt,letterpaper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[margin=0.75in]{geometry}
@@ -213,39 +341,51 @@ def generate_latex_source(data: Dict[str, Any]) -> str:
 {\Huge \bfseries \color{primary} """ + comp_name + r"""} \\
 {\large \textit{""" + comp_title + r"""}} \\
 \vspace{4pt}
-Email: \href{mailto:""" + personal.get("email", "") + r"""}{""" + comp_email + r"""} | 
-Phone: """ + comp_phone + r""" | 
-Location: """ + comp_location + r"""
-"""
-        if personal.get("website"):
-            latex += r""" | Website: \href{""" + personal.get("website", "") + r"""}{""" + comp_website + r"""}"""
-        latex += r"""
+""" + header_str + r"""
 \vspace{10pt}
 """
         if summary:
             latex += r"""\section{Professional Summary}
 """ + comp_summary + r"""
 """
-        if experience:
+        if comp_exp:
             latex += r"""\section{Work Experience}
 """ + comp_exp
-        if education:
+        if comp_edu:
             latex += r"""\section{Education}
 """ + comp_edu
-        if skills:
+        if comp_skills:
             latex += r"""\section{Skills \& Expertises}
 """ + comp_skills
-        if projects:
+        if comp_proj:
             latex += r"""\section{Key Projects}
 """ + comp_proj
-        if certifications:
+        if comp_certs:
             latex += r"""\section{Certifications}
 """ + comp_certs
         latex += r"""\end{document}"""
         return latex
 
     elif template_name == "academic":
-        # Classic minimal serif layout
+        # Header dynamically constructed
+        academic_header = r"""\begin{center}
+    {\LARGE \scshape """ + comp_name + r"""} \\
+    \vspace{2pt}
+    """ + comp_title + r""" \\
+    \vspace{4pt}
+    """
+        academic_parts = []
+        if personal.get("email"):
+            academic_parts.append(r"Email: " + comp_email)
+        if personal.get("phone"):
+            academic_parts.append(r"Phone: " + comp_phone)
+        if personal.get("location"):
+            academic_parts.append(r"Location: " + comp_location)
+        academic_header += " | ".join(academic_parts)
+        if personal.get("website"):
+            academic_header += r""" \\ Website: \href{""" + escape_latex_url(personal.get("website")) + r"""}{""" + comp_website + r"""}"""
+        academic_header += r"""\end{center}"""
+
         latex = r"""\documentclass[11pt,letterpaper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[margin=1.0in]{geometry}
@@ -261,44 +401,32 @@ Location: """ + comp_location + r"""
 
 \begin{document}
 
-% Header
-\begin{center}
-    {\LARGE \scshape """ + comp_name + r"""} \\
-    \vspace{2pt}
-    """ + comp_title + r""" \\
-    \vspace{4pt}
-    Email: """ + comp_email + r""" | Phone: """ + comp_phone + r""" | Location: """ + comp_location + r"""
-"""
-        if personal.get("website"):
-            latex += r"""    \\ Website: """ + comp_website + r"""
-"""
-        latex += r"""\end{center}
+""" + academic_header + r"""
 \vspace{8pt}
 """
         if summary:
             latex += r"""\section{Summary of Expertise}
 """ + comp_summary + r"""
 """
-        if experience:
+        if comp_exp:
             latex += r"""\section{Research \& Employment History}
 """ + comp_exp
-        if education:
+        if comp_edu:
             latex += r"""\section{Academic Qualifications}
 """ + comp_edu
-        if skills:
+        if comp_skills:
             latex += r"""\section{Technical Core Skills}
 """ + comp_skills
-        if projects:
+        if comp_proj:
             latex += r"""\section{Selected Publications \& Projects}
 """ + comp_proj
-        if certifications:
+        if comp_certs:
             latex += r"""\section{Professional Credentials}
 """ + comp_certs
         latex += r"""\end{document}"""
         return latex
 
     elif template_name == "creative":
-        # Left-Aligned with Teal Accent and customized margins
         latex = r"""\documentclass[10pt,letterpaper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[margin=0.75in]{geometry}
@@ -320,39 +448,32 @@ Location: """ + comp_location + r"""
 {\Huge \bfseries \color{primary} """ + comp_name + r"""} \\
 {\large \textit{""" + comp_title + r"""}} \\
 \vspace{4pt}
-Email: \href{mailto:""" + personal.get("email", "") + r"""}{""" + comp_email + r"""} | 
-Phone: """ + comp_phone + r""" | 
-Location: """ + comp_location + r"""
-"""
-        if personal.get("website"):
-            latex += r""" | Website: \href{""" + personal.get("website", "") + r"""}{""" + comp_website + r"""}"""
-        latex += r"""
+""" + header_str + r"""
 \vspace{10pt}
 """
         if summary:
             latex += r"""\section{Creative Profile Summary}
 """ + comp_summary + r"""
 """
-        if experience:
+        if comp_exp:
             latex += r"""\section{Professional Experience}
 """ + comp_exp
-        if education:
+        if comp_edu:
             latex += r"""\section{Education \& Credentials}
 """ + comp_edu
-        if skills:
+        if comp_skills:
             latex += r"""\section{Core Skills \& Tools}
 """ + comp_skills
-        if projects:
+        if comp_proj:
             latex += r"""\section{Selected Projects}
 """ + comp_proj
-        if certifications:
+        if comp_certs:
             latex += r"""\section{Certifications}
 """ + comp_certs
         latex += r"""\end{document}"""
         return latex
 
     elif template_name == "executive":
-        # Centered Burgundy themed elegant serif style
         latex = r"""\documentclass[10pt,letterpaper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[margin=0.75in]{geometry}
@@ -375,13 +496,7 @@ Location: """ + comp_location + r"""
     \vspace{3pt}
     {\large \scshape """ + comp_title + r"""} \\
     \vspace{4pt}
-    Email: \href{mailto:""" + personal.get("email", "") + r"""}{""" + comp_email + r"""} | 
-    Phone: """ + comp_phone + r""" | 
-    Location: """ + comp_location + r"""
-"""
-        if personal.get("website"):
-            latex += r""" \\ Website: \href{""" + personal.get("website", "") + r"""}{""" + comp_website + r"""}"""
-        latex += r"""
+    """ + header_str + r"""
 \end{center}
 \vspace{4pt}
 """
@@ -392,31 +507,31 @@ Location: """ + comp_location + r"""
 \noindent
 """ + comp_summary + r"""
 """
-        if experience:
+        if comp_exp:
             latex += r"""
 \vspace{8pt}
 \centerline{\textbf{\color{primary} CHRONOLOGY OF EXPERIENCE}}
 \vspace{2pt}
 """ + comp_exp
-        if education:
+        if comp_edu:
             latex += r"""
 \vspace{8pt}
 \centerline{\textbf{\color{primary} ACADEMIC FOUNDATIONS}}
 \vspace{2pt}
 """ + comp_edu
-        if skills:
+        if comp_skills:
             latex += r"""
 \vspace{8pt}
 \centerline{\textbf{\color{primary} TECHNICAL CORE SKILLS}}
 \vspace{2pt}
 """ + comp_skills
-        if projects:
+        if comp_proj:
             latex += r"""
 \vspace{8pt}
 \centerline{\textbf{\color{primary} SELECTED LECTURE PROJECTS}}
 \vspace{2pt}
 """ + comp_proj
-        if certifications:
+        if comp_certs:
             latex += r"""
 \vspace{8pt}
 \centerline{\textbf{\color{primary} CERTIFICATIONS}}
@@ -426,7 +541,6 @@ Location: """ + comp_location + r"""
         return latex
 
     else:
-        # Default 'modern' centered layout
         latex = r"""\documentclass[10pt,letterpaper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[margin=0.75in]{geometry}
@@ -448,13 +562,7 @@ Location: """ + comp_location + r"""
     \vspace{2pt}
     """ + comp_title + r""" \\
     \vspace{4pt}
-    Email: \href{mailto:""" + personal.get("email", "") + r"""}{""" + comp_email + r"""} | 
-    Phone: """ + comp_phone + r""" | 
-    Location: """ + comp_location + r"""
-    """
-        if personal.get("website"):
-            latex += r""" \\ \href{""" + personal.get("website", "") + r"""}{""" + comp_website + r"""}"""
-        latex += r"""
+    """ + header_str + r"""
 \end{center}
 \vspace{-10pt}
 """
@@ -462,32 +570,32 @@ Location: """ + comp_location + r"""
             latex += r"""\section{Professional Summary}
 """ + comp_summary + r"""
 """
-        if experience:
+        if comp_exp:
             latex += r"""\section{Work Experience}
 """ + comp_exp
-        if education:
+        if comp_edu:
             latex += r"""\section{Education}
 """ + comp_edu
-        if skills:
+        if comp_skills:
             latex += r"""\section{Skills}
 """ + comp_skills
-        if projects:
+        if comp_proj:
             latex += r"""\section{Projects}
 """ + comp_proj
-        if certifications:
+        if comp_certs:
             latex += r"""\section{Certifications}
 """ + comp_certs
         latex += r"""\end{document}"""
         return latex
 
 def generate_word_document(data: Dict[str, Any]) -> docx.Document:
-    personal = data.get("personal_info", {})
-    summary = data.get("summary", "")
-    experience = data.get("experience", [])
-    education = data.get("education", [])
-    skills = data.get("skills", [])
-    projects = data.get("projects", [])
-    certifications = data.get("certifications", [])
+    personal = data.get("personal_info") or {}
+    summary = data.get("summary") or ""
+    experience = data.get("experience") or []
+    education = data.get("education") or []
+    skills = data.get("skills") or []
+    projects = data.get("projects") or []
+    certifications = data.get("certifications") or []
 
     doc = docx.Document()
     
@@ -503,7 +611,7 @@ def generate_word_document(data: Dict[str, Any]) -> docx.Document:
     # Name header
     p_name = doc.add_paragraph()
     p_name.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run_name = p_name.add_run(personal.get("name", "Name"))
+    run_name = p_name.add_run(personal.get("name") or "Name")
     run_name.bold = True
     run_name.font.size = Pt(20)
     run_name.font.name = 'Calibri'
@@ -561,91 +669,165 @@ def generate_word_document(data: Dict[str, Any]) -> docx.Document:
     if experience:
         add_section_header("Work Experience")
         for exp in experience:
+            role = exp.get("role") or ""
+            company = exp.get("company") or ""
+            start_date = exp.get("startDate") or ""
+            end_date = exp.get("endDate") or ""
+            location = exp.get("location") or ""
+            desc = exp.get("description") or ""
+            
             p_title = doc.add_paragraph()
             p_title.paragraph_format.space_after = Pt(2)
-            role_run = p_title.add_run(exp.get("role", ""))
-            role_run.bold = True
             
-            p_title.add_run("   •   " + exp.get("company", ""))
-            
-            date_run = p_title.add_run(f"\t({exp.get('startDate', '')} – {exp.get('endDate', '')})")
-            date_run.font.color.rgb = RGBColor(100, 100, 100)
-            
-            if exp.get("location"):
+            if role:
+                role_run = p_title.add_run(role)
+                role_run.bold = True
+                
+            if company:
+                if role:
+                    p_title.add_run("   •   " + company)
+                else:
+                    comp_run = p_title.add_run(company)
+                    comp_run.bold = True
+                    
+            date_parts = []
+            if start_date:
+                date_parts.append(start_date)
+            if end_date:
+                date_parts.append(end_date)
+                
+            if date_parts:
+                date_str = " – ".join(date_parts)
+                date_run = p_title.add_run(f"\t({date_str})")
+                date_run.font.color.rgb = RGBColor(100, 100, 100)
+                
+            if location:
                 p_loc = doc.add_paragraph()
                 p_loc.paragraph_format.space_after = Pt(2)
-                loc_run = p_loc.add_run(exp.get("location", ""))
+                loc_run = p_loc.add_run(location)
                 loc_run.font.italic = True
                 loc_run.font.size = Pt(9)
                 loc_run.font.color.rgb = RGBColor(120, 120, 120)
                 
-            bullets = exp.get("description", "").split("\n")
-            for b in bullets:
-                b = b.strip().lstrip("-*•").strip()
-                if b:
-                    doc.add_paragraph(b, style='List Bullet')
+            if desc:
+                bullets = desc.split("\n")
+                for b in bullets:
+                    b = b.strip().lstrip("-*•").strip()
+                    if b:
+                        doc.add_paragraph(b, style='List Bullet')
 
     # Education
     if education:
         add_section_header("Education")
         for edu in education:
+            inst = edu.get("institution") or ""
+            degree = edu.get("degree") or ""
+            major = edu.get("major") or ""
+            start_date = edu.get("startDate") or ""
+            end_date = edu.get("endDate") or ""
+            gpa = edu.get("gpa") or ""
+            
             p_edu = doc.add_paragraph()
             p_edu.paragraph_format.space_after = Pt(2)
-            inst_run = p_edu.add_run(edu.get("institution", ""))
-            inst_run.bold = True
             
-            degree_str = f"   •   {edu.get('degree', '')} in {edu.get('major', '')}"
-            p_edu.add_run(degree_str)
-            
-            date_run = p_edu.add_run(f"\t({edu.get('startDate', '')} – {edu.get('endDate', '')})")
-            date_run.font.color.rgb = RGBColor(100, 100, 100)
-            
-            if edu.get("gpa"):
+            if inst:
+                inst_run = p_edu.add_run(inst)
+                inst_run.bold = True
+                
+            deg_parts = []
+            if degree:
+                deg_parts.append(degree)
+            if major:
+                deg_parts.append(f"in {major}")
+            if deg_parts:
+                deg_str = " " + " ".join(deg_parts)
+                if inst:
+                    p_edu.add_run("   •   " + deg_str.strip())
+                else:
+                    deg_run = p_edu.add_run(deg_str.strip())
+                    deg_run.bold = True
+                    
+            date_parts = []
+            if start_date:
+                date_parts.append(start_date)
+            if end_date:
+                date_parts.append(end_date)
+            if date_parts:
+                date_str = " – ".join(date_parts)
+                date_run = p_edu.add_run(f"\t({date_str})")
+                date_run.font.color.rgb = RGBColor(100, 100, 100)
+                
+            if gpa:
                 p_gpa = doc.add_paragraph()
                 p_gpa.paragraph_format.space_after = Pt(4)
-                gpa_run = p_gpa.add_run(f"GPA/Marks: {edu.get('gpa')}")
+                gpa_run = p_gpa.add_run(f"GPA/Marks: {gpa}")
                 gpa_run.font.size = Pt(9.5)
 
     # Skills
     if skills:
         add_section_header("Skills")
         for sk in skills:
-            p_sk = doc.add_paragraph()
-            p_sk.paragraph_format.space_after = Pt(2)
-            cat_run = p_sk.add_run(sk.get("category", "General") + ": ")
-            cat_run.bold = True
-            p_sk.add_run(sk.get("list", ""))
+            category = sk.get("category") or ""
+            s_list = sk.get("list") or ""
+            if category or s_list:
+                p_sk = doc.add_paragraph()
+                p_sk.paragraph_format.space_after = Pt(2)
+                if category:
+                    cat_run = p_sk.add_run(category + ": ")
+                    cat_run.bold = True
+                if s_list:
+                    p_sk.add_run(s_list)
 
     # Projects
     if projects:
         add_section_header("Projects")
         for proj in projects:
+            title = proj.get("title") or ""
+            role = proj.get("role") or ""
+            link = proj.get("link") or ""
+            desc = proj.get("description") or ""
+            
             p_proj = doc.add_paragraph()
             p_proj.paragraph_format.space_after = Pt(2)
-            proj_run = p_proj.add_run(proj.get("title", ""))
-            proj_run.bold = True
             
-            if proj.get("role"):
-                p_proj.add_run(f" ({proj.get('role')})")
-            
-            if proj.get("link"):
-                p_proj.add_run(f"  |  Link: {proj.get('link')}")
+            if title:
+                proj_run = p_proj.add_run(title)
+                proj_run.bold = True
                 
-            doc.add_paragraph(proj.get("description", ""))
+            if role:
+                if title:
+                    p_proj.add_run(f" ({role})")
+                else:
+                    role_run = p_proj.add_run(role)
+                    role_run.bold = True
+                    
+            if link:
+                p_proj.add_run(f"  |  Link: {link}")
+                
+            if desc:
+                bullets = desc.split("\n")
+                for b in bullets:
+                    b = b.strip().lstrip("-*•").strip()
+                    if b:
+                        doc.add_paragraph(b, style='List Bullet')
 
     # Certifications
     if certifications:
         add_section_header("Certifications")
         for cert in certifications:
-            name = cert.get("name", "")
-            issuer = cert.get("issuer", "")
-            date = cert.get("date", "")
-            cert_str = name
+            name = cert.get("name") or ""
+            issuer = cert.get("issuer") or ""
+            date = cert.get("date") or ""
+            cert_parts = []
+            if name:
+                cert_parts.append(name)
             if issuer:
-                cert_str += f" - {issuer}"
+                cert_parts.append(issuer)
             if date:
-                cert_str += f" ({date})"
-            doc.add_paragraph(cert_str, style='List Bullet')
+                cert_parts.append(f"({date})")
+            if cert_parts:
+                cert_str = " - ".join(cert_parts[:-1]) + f" {cert_parts[-1]}" if len(cert_parts) > 1 and cert_parts[-1].startswith("(") else " - ".join(cert_parts)
+                doc.add_paragraph(cert_str, style='List Bullet')
 
     return doc
 
@@ -892,9 +1074,15 @@ async def tailor_resume(
         "summary, experience bullet points, and projects descriptions to align perfectly with the target "
         "Job Description. Highlight relevant keywords and use strong quantitative, metric-oriented phrasings. "
         "Do not edit their name, contact details, or institutional credentials (dates, degrees, companies). "
-        "Do not invent new roles or fake titles. "
+        "Do not invent new roles or fake titles.\n"
+        "CRITICAL SAFETY RULE: DO NOT invent, fabricate, or add any new experiences, projects, jobs, credentials, "
+        "certifications, or qualifications. ONLY adapt, rephrase, and align the phrasing of their existing points "
+        "to match the job description. Do not add technologies, programming languages, libraries, databases, or "
+        "skills that are NOT already explicitly mentioned in the input master resume. Everything in your output "
+        "must be backed by original facts in the master resume. Do not make up metrics (e.g. do not invent numbers "
+        "like 'increased sales by 40%' or 'managed a team of 15' if no such details were originally mentioned).\n"
         "You must output a valid JSON object matching the input structure exactly, containing the tailored "
-        "fields, plus an extra string field 'explanation' detailing exactly what optimizations were made and why. "
+        "fields, plus an extra string field 'explanation' detailing exactly what optimizations were made and why.\n"
         "JSON output format:\n"
         "{\n"
         '  "tailored_resume_data": { "personal_info": ..., "summary": "rewritten...", "experience": [...], ... },\n'

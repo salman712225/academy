@@ -931,4 +931,60 @@ h1, h2, h3, h4, h5, h6 {
   font-style: italic;
 }
 
+/* Print styles to export only the resume sheet preview and hide the web UI */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide everything on the page */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Re-enable visibility only for the resume print area and its children */
+  #resume-print-area,
+  #resume-print-area * {
+    visibility: visible !important;
+  }
+
+  /* Style and position the print area to span the full page width and height */
+  #resume-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Ensure text colors are optimized for printing black on white */
+  #resume-print-area h1,
+  #resume-print-area div,
+  #resume-print-area p,
+  #resume-print-area li,
+  #resume-print-area span {
+    color: #000000 !important;
+  }
+
+  @page {
+    size: letter;
+    margin: 0.75in;
+  }
+}
+
+
 
