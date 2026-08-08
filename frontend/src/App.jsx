@@ -3872,13 +3872,13 @@ function AIPlacementSuitePanel({ user }) {
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      <h2 style={{ marginBottom: '6px' }} className="title-gradient">AI Placement & Career Assistant</h2>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+      <h2 id="ai-placement-title" style={{ marginBottom: '6px' }} className="title-gradient">AI Placement & Career Assistant</h2>
+      <p id="ai-placement-desc" style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
         Unlock career opportunities using advanced agentic optimization, RAG learning resources, mock interviews, and tailored resumes.
       </p>
 
       {/* Sub-tab navigation bar */}
-      <div className="glass-card" style={{ padding: '8px', marginBottom: '28px', display: 'flex', gap: '8px', flexWrap: 'wrap', borderRadius: '12px' }}>
+      <div id="ai-placement-tabs" className="glass-card" style={{ padding: '8px', marginBottom: '28px', display: 'flex', gap: '8px', flexWrap: 'wrap', borderRadius: '12px' }}>
         {[
           { id: 'ats', label: 'ATS Score Analyzer', icon: '⚡' },
           { id: 'builder', label: 'Resume Builder', icon: '📝' },

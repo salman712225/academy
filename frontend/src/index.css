@@ -944,7 +944,8 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Hide all main web UI containers and layout sidebars/footers/headers */
   .sidebar, .navbar, nav, header, footer,
-  #resume-editor-column, #resume-export-options-card, #resume-preview-header {
+  #resume-editor-column, #resume-export-options-card, #resume-preview-header,
+  #ai-placement-title, #ai-placement-desc, #ai-placement-tabs {
     display: none !important;
   }
 
