@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_db
-from app.modules.auth.service import get_current_user, require_role
+from app.modules.auth.service import get_current_user, require_role, require_permission
 from app.modules.documents.schemas import NoteResponse, ResumeResponse
 
 router = APIRouter(prefix="/documents", tags=["Document Management"])
@@ -38,7 +38,7 @@ async def upload_note(
     description: str = Form(...),
     file: UploadFile = File(...),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("manage_notes"))
 ):
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
@@ -103,7 +103,7 @@ async def list_notes(
 async def delete_note(
     note_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("manage_notes"))
 ):
     note = await db.notes.find_one({"_id": note_id})
     if not note:
@@ -133,7 +133,7 @@ async def delete_note(
 async def upload_resume(
     file: UploadFile = File(...),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["student"]))
+    current_user = Depends(require_permission("manage_resumes"))
 ):
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
@@ -211,8 +211,10 @@ async def upload_resume(
 @router.get("/resumes", response_model=List[ResumeResponse])
 async def list_resumes(
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("manage_resumes"))
 ):
+    if current_user.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Students are not authorized to view all resumes.")
     cursor = db.resumes.find().sort("uploaded_at", -1)
     resumes = []
     async for doc in cursor:
@@ -223,7 +225,7 @@ async def list_resumes(
 @router.get("/resumes/my-resume", response_model=ResumeResponse)
 async def get_my_resume(
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["student"]))
+    current_user = Depends(require_permission("manage_resumes"))
 ):
     student_email = current_user["email"].lower()
     resume = await db.resumes.find_one({"student_email": student_email})

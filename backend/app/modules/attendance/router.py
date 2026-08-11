@@ -6,7 +6,7 @@ import io
 from datetime import datetime, timezone
 
 from app.core.database import get_db
-from app.modules.auth.service import require_role, get_current_user
+from app.modules.auth.service import require_role, get_current_user, require_permission
 from app.modules.attendance.schemas import (
     AttendanceRecord, 
     StudentAttendanceSummary, 
@@ -77,7 +77,7 @@ async def upload_attendance(
     batch_id: str = Form(...),
     file: UploadFile = File(...),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("upload_attendance"))
 ):
     """
     Upload an XLSX spreadsheet to update attendance.
@@ -570,7 +570,7 @@ async def upload_attendance(
 @router.get("/my-attendance", response_model=StudentAttendanceSummary)
 async def get_my_attendance(
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["student"]))
+    current_user = Depends(require_permission("view_attendance"))
 ):
     """Retrieve logged-in student's daily attendance records."""
     student_email = current_user["email"].lower()
@@ -623,7 +623,7 @@ async def get_batch_attendance(
     batch_id: str,
     date: Optional[str] = None,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer", "associate"]))
+    current_user = Depends(require_permission("view_attendance"))
 ):
     """List attendance logs for a specific batch. Optionally filter by date. Trainers are restricted to assigned classes."""
     user_role = current_user.get("role")
@@ -650,7 +650,7 @@ async def get_batch_attendance(
 async def get_batch_students(
     batch_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer", "associate"]))
+    current_user = Depends(require_permission("view_attendance"))
 ):
     """Retrieve all students assigned to a specific batch."""
     # Authenticate trainer
@@ -677,7 +677,7 @@ async def get_batch_students(
 async def save_manual_attendance(
     payload: AttendanceManualUpdateRequest,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("upload_attendance"))
 ):
     """
     Save/update attendance manually for a batch and date.
@@ -745,7 +745,7 @@ async def save_manual_attendance(
 async def get_batch_attendance_summary(
     batch_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer", "associate"]))
+    current_user = Depends(require_permission("view_attendance"))
 ):
     """Retrieve overall student statistics, grades, and Skillfy app details for a batch."""
     user_role = current_user.get("role")
@@ -768,7 +768,7 @@ async def get_batch_attendance_summary(
 async def get_batch_attendance_stats(
     batch_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer", "associate"]))
+    current_user = Depends(require_permission("view_attendance"))
 ):
     """
     Returns daywise attendance stats, topics taught per day,

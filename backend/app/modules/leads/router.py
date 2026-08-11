@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from app.core.database import get_db
-from app.modules.auth.service import require_role
+from app.modules.auth.service import require_role, require_permission
 from app.modules.leads.schemas import LeadCreate, LeadUpdate, LeadResponse
 
 router = APIRouter(prefix="/leads", tags=["Lead Generation"])
@@ -14,9 +14,12 @@ router = APIRouter(prefix="/leads", tags=["Lead Generation"])
 async def create_lead(
     lead_in: LeadCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_leads"))
 ):
     """Create a new job opportunity/lead."""
+    if current_user.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Students are not authorized to create job leads.")
+        
     lead_dict = lead_in.model_dump()
     lead_dict["created_at"] = datetime.now(timezone.utc)
     
@@ -27,9 +30,9 @@ async def create_lead(
 @router.get("/", response_model=List[LeadResponse])
 async def list_leads(
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate", "student"]))
+    current_user = Depends(require_permission("manage_leads"))
 ):
-    """List all leads. Accessible to Head, Associate, and Students."""
+    """List all leads. Accessible to roles with manage_leads permission."""
     cursor = db.leads.find()
     leads = []
     async for doc in cursor:
@@ -42,9 +45,12 @@ async def update_lead(
     lead_id: str,
     lead_in: LeadUpdate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_leads"))
 ):
     """Update a specific lead."""
+    if current_user.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Students are not authorized to update job leads.")
+        
     if not ObjectId.is_valid(lead_id):
         raise HTTPException(status_code=400, detail="Invalid lead ID format.")
         
@@ -67,9 +73,12 @@ async def update_lead(
 async def delete_lead(
     lead_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_leads"))
 ):
     """Delete a specific lead."""
+    if current_user.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Students are not authorized to delete job leads.")
+        
     if not ObjectId.is_valid(lead_id):
         raise HTTPException(status_code=400, detail="Invalid lead ID format.")
         

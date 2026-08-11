@@ -51,6 +51,76 @@ async def authenticate_user(db: AsyncIOMotorDatabase, email: str, password: str)
         return None
     return user
 
+DEFAULT_ROLE_PERMISSIONS = {
+    "trainer": {
+        "upload_attendance": True,
+        "view_attendance": True,
+        "manage_library": False,
+        "manage_leads": False,
+        "manage_events": True,
+        "manage_notes": True,
+        "manage_resumes": True,
+        "manage_tests": True,
+        "ai_placement_suite": True,
+        "digital_library": True,
+        "manage_applications": False,
+    },
+    "associate": {
+        "upload_attendance": False,
+        "view_attendance": True,
+        "manage_library": True,
+        "manage_leads": True,
+        "manage_events": True,
+        "manage_notes": False,
+        "manage_resumes": False,
+        "manage_tests": False,
+        "ai_placement_suite": False,
+        "digital_library": False,
+        "manage_applications": True,
+    },
+    "student": {
+        "upload_attendance": False,
+        "view_attendance": True,
+        "manage_library": True,
+        "manage_leads": True,
+        "manage_events": True,
+        "manage_notes": True,
+        "manage_resumes": True,
+        "manage_tests": True,
+        "ai_placement_suite": True,
+        "digital_library": True,
+        "manage_applications": False,
+    }
+}
+
+def get_default_permissions_for_role(role: str) -> dict:
+    return DEFAULT_ROLE_PERMISSIONS.get(role, {})
+
+async def get_role_permissions(db: AsyncIOMotorDatabase, role: str) -> dict:
+    if role == "head":
+        return {
+            "upload_attendance": True,
+            "view_attendance": True,
+            "manage_library": True,
+            "manage_leads": True,
+            "manage_events": True,
+            "manage_notes": True,
+            "manage_resumes": True,
+            "manage_tests": True,
+            "ai_placement_suite": True,
+            "digital_library": True,
+            "manage_applications": True,
+        }
+    doc = await db.role_permissions.find_one({"role": role})
+    if doc:
+        return doc.get("permissions", {})
+    return get_default_permissions_for_role(role)
+
+async def attach_permissions_to_user(db: AsyncIOMotorDatabase, user: dict):
+    if user:
+        user["permissions"] = await get_role_permissions(db, user.get("role"))
+    return user
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(reusable_oauth2),
     db: AsyncIOMotorDatabase = Depends(get_db)
@@ -69,12 +139,11 @@ async def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    await attach_permissions_to_user(db, user)
     return user
 
 def require_role(allowed_roles: List[str]):
     async def role_dependency(current_user = Depends(get_current_user)):
-        # Area Head ('head') inherits all privileges of 'trainer' / 'teacher' and other roles, 
-        # but let's be explicit: if head has all access, they are automatically allowed.
         user_role = current_user.get("role")
         if user_role == "head":
             return current_user
@@ -85,6 +154,24 @@ def require_role(allowed_roles: List[str]):
             )
         return current_user
     return role_dependency
+
+def require_permission(permission_name: str):
+    async def permission_dependency(
+        current_user = Depends(get_current_user),
+        db: AsyncIOMotorDatabase = Depends(get_db)
+    ):
+        user_role = current_user.get("role")
+        if user_role == "head":
+            return current_user
+        
+        permissions = current_user.get("permissions") or {}
+        if not permissions.get(permission_name, False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access Denied: Role '{user_role}' does not have the required permission '{permission_name}'."
+            )
+        return current_user
+    return permission_dependency
 
 async def seed_head_user(db: AsyncIOMotorDatabase):
     """Seed default Area Head admin account on startup."""

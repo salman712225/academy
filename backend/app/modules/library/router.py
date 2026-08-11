@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 
 from app.core.database import get_db, transaction_scope
-from app.modules.auth.service import require_role, get_current_user
+from app.modules.auth.service import require_role, get_current_user, require_permission
 from app.modules.library.schemas import BookCreate, BookResponse, LendRequest, LendingResponse, StudentFineSummary, BookUpdate
 
 router = APIRouter(prefix="/library", tags=["Library Management"])
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/library", tags=["Library Management"])
 async def create_book(
     book_in: BookCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_library"))
 ):
     """Create a new book with copy unique IDs generated sequentially."""
     existing_book = await db.books.find_one({"isbn": book_in.isbn})
@@ -59,7 +59,7 @@ async def list_books(
 async def lend_book_copy(
     req: LendRequest,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_library"))
 ):
     """
     Lend a specific book copy to a student.
@@ -138,7 +138,7 @@ async def lend_book_copy(
 async def return_book_copy(
     lending_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_library"))
 ):
     """
     Return a lent book copy, recalculating fine if returned past 5 days.
@@ -210,7 +210,7 @@ async def return_book_copy(
 @router.get("/my-fines", response_model=StudentFineSummary)
 async def get_my_fines(
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["student"]))
+    current_user = Depends(require_permission("manage_library"))
 ):
     """Retrieve logged-in student's lendings and calculate cumulative fine details."""
     student_email = current_user["email"].lower()
@@ -250,7 +250,7 @@ async def get_my_fines(
 @router.get("/active-lendings", response_model=List[LendingResponse])
 async def list_active_lendings(
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(require_permission("manage_library"))
 ):
     """List all currently active lendings in the academy."""
     cursor = db.lendings.find({"status": {"$in": ["lent", "overdue"]}})

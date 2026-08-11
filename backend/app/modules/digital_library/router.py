@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_db
-from app.modules.auth.service import get_current_user, require_role
+from app.modules.auth.service import get_current_user, require_role, require_permission
 from app.modules.digital_library.schemas import DigitalBookResponse
 
 logger = logging.getLogger("academy_main")
@@ -42,8 +42,10 @@ async def upload_digital_book(
     category: str = Form(...),
     file: UploadFile = File(...),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("digital_library"))
 ):
+    if current_user.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Students are not authorized to upload digital books.")
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
     if ext != ".pdf":
@@ -166,8 +168,10 @@ async def get_digital_book_details(
 async def delete_digital_book(
     book_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "trainer"]))
+    current_user = Depends(require_permission("digital_library"))
 ):
+    if current_user.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Students are not authorized to delete digital books.")
     """Delete a digital book from catalog and its file from Cloudinary."""
     book = await db.digital_books.find_one({"_id": book_id})
     if not book:

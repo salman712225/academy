@@ -1,7 +1,7 @@
 // Frontend API service wrapper
 
-// Use VITE_API_URL environment variable in production, fallback to '/api' for local proxy
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Use VITE_API_URL when provided; otherwise fall back to the local backend API.
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:9000/api').replace(/\/$/, '');
 
 const getHeaders = () => {
   const headers = {
@@ -93,13 +93,28 @@ export const api = {
       });
       if (response.status === 204) return true;
       return handleResponse(response);
+    },
+    getPermissions: async () => {
+      const response = await fetch(`${BASE_URL}/auth/permissions`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    updatePermissions: async (role, permissions) => {
+      const response = await fetch(`${BASE_URL}/auth/permissions/${role}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(permissions),
+      });
+      return handleResponse(response);
     }
   },
 
   // Batches
   batches: {
-    list: async (openOnly = false) => {
-      const response = await fetch(`${BASE_URL}/batches/?open_only=${openOnly}`, {
+    list: async (openOnly = false, group = '') => {
+      const url = `${BASE_URL}/batches/?open_only=${openOnly}${group ? `&group=${encodeURIComponent(group)}` : ''}`;
+      const response = await fetch(url, {
         headers: getHeaders(),
       });
       return handleResponse(response);
@@ -112,11 +127,10 @@ export const api = {
       });
       return handleResponse(response);
     },
-    apply: async (batchId, appData) => {
+    apply: async (batchId, formData) => {
       const response = await fetch(`${BASE_URL}/batches/${batchId}/apply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(appData),
+        body: formData,
       });
       return handleResponse(response);
     },
@@ -130,6 +144,14 @@ export const api = {
       const response = await fetch(`${BASE_URL}/batches/applications/${appId}/status?status_val=${status}`, {
         method: 'PUT',
         headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    scheduleInterview: async (appId, details) => {
+      const response = await fetch(`${BASE_URL}/batches/applications/${appId}/interview`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(details),
       });
       return handleResponse(response);
     }
@@ -370,6 +392,20 @@ export const api = {
       const url = `${BASE_URL}/emails/recent-recipients?query_str=${encodeURIComponent(queryStr)}`;
       const response = await fetch(url, {
         headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    getSettings: async () => {
+      const response = await fetch(`${BASE_URL}/emails/settings`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    saveSettings: async (settingsData) => {
+      const response = await fetch(`${BASE_URL}/emails/settings`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(settingsData),
       });
       return handleResponse(response);
     }

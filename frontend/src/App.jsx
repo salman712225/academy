@@ -17,6 +17,18 @@ function App() {
   const [applyBatchId, setApplyBatchId] = useState('');
   const [applyName, setApplyName] = useState('');
   const [applyEmail, setApplyEmail] = useState('');
+  const [applyAge, setApplyAge] = useState('');
+  const [applyGender, setApplyGender] = useState('');
+  const [applyDegree, setApplyDegree] = useState('');
+  const [applyBranch, setApplyBranch] = useState('');
+  const [applyPassout, setApplyPassout] = useState('');
+  const [applyPercentage, setApplyPercentage] = useState('');
+  const [applyArrears, setApplyArrears] = useState('');
+  const [file10th, setFile10th] = useState(null);
+  const [file12th, setFile12th] = useState(null);
+  const [fileResume, setFileResume] = useState(null);
+  const [fileUg, setFileUg] = useState(null);
+  const [fileProvisional, setFileProvisional] = useState(null);
 
   // Listen for login/logout events across tabs
   useEffect(() => {
@@ -43,7 +55,7 @@ function App() {
 
   const fetchPublicBatches = async () => {
     try {
-      const data = await api.batches.list(true);
+      const data = await api.batches.list(true, "upcoming");
       setBatchesOpen(data);
     } catch (err) {
       console.error(err);
@@ -54,15 +66,46 @@ function App() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (!applyBatchId) {
+      setError('Please select a batch.');
+      return;
+    }
     try {
-      await api.batches.apply(applyBatchId, {
-        student_name: applyName,
-        student_email: applyEmail
-      });
+      const formData = new FormData();
+      formData.append('student_name', applyName);
+      formData.append('student_email', applyEmail);
+      formData.append('age', applyAge);
+      formData.append('gender', applyGender);
+      formData.append('degree', applyDegree);
+      formData.append('branch', applyBranch);
+      formData.append('passout_year', applyPassout);
+      formData.append('college_percentage', applyPercentage);
+      formData.append('any_arrears', applyArrears);
+      if (file10th) formData.append('marksheet_10th_file', file10th);
+      if (file12th) formData.append('marksheet_12th_file', file12th);
+      if (fileResume) formData.append('resume_file', fileResume);
+      if (fileUg) formData.append('ug_marksheet_file', fileUg);
+      if (fileProvisional) formData.append('provisional_certificate_file', fileProvisional);
+
+      await api.batches.apply(applyBatchId, formData);
       setSuccess('Application submitted successfully!');
       setApplyName('');
       setApplyEmail('');
-      setIsApplying(false);
+      setApplyAge('');
+      setApplyGender('');
+      setApplyDegree('');
+      setApplyBranch('');
+      setApplyPassout('');
+      setApplyPercentage('');
+      setApplyArrears('');
+      setFile10th(null);
+      setFile12th(null);
+      setFileResume(null);
+      setFileUg(null);
+      setFileProvisional(null);
+      setTimeout(() => {
+        setIsApplying(false);
+      }, 1500);
     } catch (err) {
       setError(err.message);
     }
@@ -90,78 +133,118 @@ function App() {
                 {/* Student Navigation */}
                 {user.role === 'student' && (
                   <>
-                    <li className={`nav-item ${activeTab === 'student_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('student_attendance')}>
-                      Attendance
-                    </li>
-                    <li className={`nav-item ${activeTab === 'student_library' ? 'active' : ''}`} onClick={() => setActiveTab('student_library')}>
-                      My Books & Fines
-                    </li>
-                    <li className={`nav-item ${activeTab === 'student_leads' ? 'active' : ''}`} onClick={() => setActiveTab('student_leads')}>
-                      Placement Leads
-                    </li>
-                    <li className={`nav-item ${activeTab === 'student_events' ? 'active' : ''}`} onClick={() => setActiveTab('student_events')}>
-                      Events & Calendar
-                    </li>
-                    <li className={`nav-item ${activeTab === 'student_notes' ? 'active' : ''}`} onClick={() => setActiveTab('student_notes')}>
-                      Study Material
-                    </li>
-                    <li className={`nav-item ${activeTab === 'student_resume' ? 'active' : ''}`} onClick={() => setActiveTab('student_resume')}>
-                      My Resume
-                    </li>
-                    <li className={`nav-item ${activeTab === 'weekly_tests' ? 'active' : ''}`} onClick={() => setActiveTab('weekly_tests')}>
-                      Weekly Tests
-                    </li>
-                    <li className={`nav-item ${activeTab === 'ai_placement_suite' ? 'active' : ''}`} onClick={() => setActiveTab('ai_placement_suite')}>
-                      AI Placement Suite
-                    </li>
-                    <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
-                      Digital Library
-                    </li>
+                    {user.permissions?.view_attendance && (
+                      <li className={`nav-item ${activeTab === 'student_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('student_attendance')}>
+                        Attendance
+                      </li>
+                    )}
+                    {user.permissions?.manage_library && (
+                      <li className={`nav-item ${activeTab === 'student_library' ? 'active' : ''}`} onClick={() => setActiveTab('student_library')}>
+                        My Books & Fines
+                      </li>
+                    )}
+                    {user.permissions?.manage_leads && (
+                      <li className={`nav-item ${activeTab === 'student_leads' ? 'active' : ''}`} onClick={() => setActiveTab('student_leads')}>
+                        Placement Leads
+                      </li>
+                    )}
+                    {user.permissions?.manage_events && (
+                      <li className={`nav-item ${activeTab === 'student_events' ? 'active' : ''}`} onClick={() => setActiveTab('student_events')}>
+                        Events & Calendar
+                      </li>
+                    )}
+                    {user.permissions?.manage_notes && (
+                      <li className={`nav-item ${activeTab === 'student_notes' ? 'active' : ''}`} onClick={() => setActiveTab('student_notes')}>
+                        Study Material
+                      </li>
+                    )}
+                    {user.permissions?.manage_resumes && (
+                      <li className={`nav-item ${activeTab === 'student_resume' ? 'active' : ''}`} onClick={() => setActiveTab('student_resume')}>
+                        My Resume
+                      </li>
+                    )}
+                    {user.permissions?.manage_tests && (
+                      <li className={`nav-item ${activeTab === 'weekly_tests' ? 'active' : ''}`} onClick={() => setActiveTab('weekly_tests')}>
+                        Weekly Tests
+                      </li>
+                    )}
+                    {user.permissions?.ai_placement_suite && (
+                      <li className={`nav-item ${activeTab === 'ai_placement_suite' ? 'active' : ''}`} onClick={() => setActiveTab('ai_placement_suite')}>
+                        AI Placement Suite
+                      </li>
+                    )}
+                    {user.permissions?.digital_library && (
+                      <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
+                        Digital Library
+                      </li>
+                    )}
                   </>
                 )}
 
                 {/* Trainer Navigation */}
                 {user.role === 'trainer' && (
                   <>
-                    <li className={`nav-item ${activeTab === 'trainer_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_attendance')}>
-                      Upload Attendance
-                    </li>
-                    <li className={`nav-item ${activeTab === 'trainer_events' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_events')}>
-                      Events & Calendar
-                    </li>
-                    <li className={`nav-item ${activeTab === 'trainer_notes' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_notes')}>
-                      Study Material
-                    </li>
-                    <li className={`nav-item ${activeTab === 'trainer_resumes' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_resumes')}>
-                      Student Resumes
-                    </li>
-                    <li className={`nav-item ${activeTab === 'trainer_test_builder' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_test_builder')}>
-                      Class Test Builder
-                    </li>
-                    <li className={`nav-item ${activeTab === 'ai_placement_suite' ? 'active' : ''}`} onClick={() => setActiveTab('ai_placement_suite')}>
-                      AI Placement Suite
-                    </li>
-                    <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
-                      Digital Library
-                    </li>
+                    {user.permissions?.upload_attendance && (
+                      <li className={`nav-item ${activeTab === 'trainer_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_attendance')}>
+                        Upload Attendance
+                      </li>
+                    )}
+                    {user.permissions?.manage_events && (
+                      <li className={`nav-item ${activeTab === 'trainer_events' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_events')}>
+                        Events & Calendar
+                      </li>
+                    )}
+                    {user.permissions?.manage_notes && (
+                      <li className={`nav-item ${activeTab === 'trainer_notes' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_notes')}>
+                        Study Material
+                      </li>
+                    )}
+                    {user.permissions?.manage_resumes && (
+                      <li className={`nav-item ${activeTab === 'trainer_resumes' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_resumes')}>
+                        Student Resumes
+                      </li>
+                    )}
+                    {user.permissions?.manage_tests && (
+                      <li className={`nav-item ${activeTab === 'trainer_test_builder' ? 'active' : ''}`} onClick={() => setActiveTab('trainer_test_builder')}>
+                        Class Test Builder
+                      </li>
+                    )}
+                    {user.permissions?.ai_placement_suite && (
+                      <li className={`nav-item ${activeTab === 'ai_placement_suite' ? 'active' : ''}`} onClick={() => setActiveTab('ai_placement_suite')}>
+                        AI Placement Suite
+                      </li>
+                    )}
+                    {user.permissions?.digital_library && (
+                      <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
+                        Digital Library
+                      </li>
+                    )}
                   </>
                 )}
 
                 {/* Center Associate Navigation */}
                 {user.role === 'associate' && (
                   <>
-                    <li className={`nav-item ${activeTab === 'associate_leads' ? 'active' : ''}`} onClick={() => setActiveTab('associate_leads')}>
-                      Lead Generation
-                    </li>
-                    <li className={`nav-item ${activeTab === 'associate_library' ? 'active' : ''}`} onClick={() => setActiveTab('associate_library')}>
-                      Lend / Return Books
-                    </li>
-                    <li className={`nav-item ${activeTab === 'associate_applications' ? 'active' : ''}`} onClick={() => setActiveTab('associate_applications')}>
-                      Applications
-                    </li>
-                    <li className={`nav-item ${activeTab === 'associate_events' ? 'active' : ''}`} onClick={() => setActiveTab('associate_events')}>
-                      Events & Calendar
-                    </li>
+                    {user.permissions?.manage_leads && (
+                      <li className={`nav-item ${activeTab === 'associate_leads' ? 'active' : ''}`} onClick={() => setActiveTab('associate_leads')}>
+                        Lead Generation
+                      </li>
+                    )}
+                    {user.permissions?.manage_library && (
+                      <li className={`nav-item ${activeTab === 'associate_library' ? 'active' : ''}`} onClick={() => setActiveTab('associate_library')}>
+                        Lend / Return Books
+                      </li>
+                    )}
+                    {user.permissions?.manage_applications && (
+                      <li className={`nav-item ${activeTab === 'associate_applications' ? 'active' : ''}`} onClick={() => setActiveTab('associate_applications')}>
+                        Applications
+                      </li>
+                    )}
+                    {user.permissions?.manage_events && (
+                      <li className={`nav-item ${activeTab === 'associate_events' ? 'active' : ''}`} onClick={() => setActiveTab('associate_events')}>
+                        Events & Calendar
+                      </li>
+                    )}
                   </>
                 )}
 
@@ -186,6 +269,9 @@ function App() {
                     <li className={`nav-item ${activeTab === 'head_batches' ? 'active' : ''}`} onClick={() => setActiveTab('head_batches')}>
                       Batch Openings
                     </li>
+                    <li className={`nav-item ${activeTab === 'associate_applications' ? 'active' : ''}`} onClick={() => setActiveTab('associate_applications')}>
+                      Admissions CRM
+                    </li>
                     <li className={`nav-item ${activeTab === 'head_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('head_attendance')}>
                       Class Attendance
                     </li>
@@ -206,6 +292,9 @@ function App() {
                     </li>
                     <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
                       Digital Library
+                    </li>
+                    <li className={`nav-item ${activeTab === 'head_permissions' ? 'active' : ''}`} onClick={() => setActiveTab('head_permissions')}>
+                      Access Control
                     </li>
                   </>
                 )}
@@ -237,98 +326,266 @@ function App() {
             )}
 
             {/* Student Panels */}
-            {activeTab === 'student_attendance' && <StudentAttendancePanel />}
-            {activeTab === 'student_library' && <StudentLibraryPanel />}
-            {activeTab === 'student_leads' && <PlacementLeadsPanel />}
+            {activeTab === 'student_attendance' && user.permissions?.view_attendance && <StudentAttendancePanel />}
+            {activeTab === 'student_library' && user.permissions?.manage_library && <StudentLibraryPanel />}
+            {activeTab === 'student_leads' && user.permissions?.manage_leads && <PlacementLeadsPanel />}
 
             {/* Trainer Panels */}
-            {activeTab === 'trainer_attendance' && <TrainerAttendancePanel user={user} />}
+            {activeTab === 'trainer_attendance' && user.permissions?.upload_attendance && <TrainerAttendancePanel user={user} />}
 
             {/* Center Associate Panels */}
-            {activeTab === 'associate_leads' && <LeadsManagementPanel />}
-            {activeTab === 'associate_library' && <AssociateLibraryPanel />}
-            {activeTab === 'associate_applications' && <ApplicationsPanel />}
+            {activeTab === 'associate_leads' && user.permissions?.manage_leads && <LeadsManagementPanel />}
+            {activeTab === 'associate_library' && user.permissions?.manage_library && <AssociateLibraryPanel />}
+            {activeTab === 'associate_applications' && user.permissions?.manage_applications && <ApplicationsPanel />}
 
             {/* Area Head Panels */}
             {activeTab === 'head_dashboard' && <HeadDashboardPanel setTab={setActiveTab} />}
             {activeTab === 'head_bulk_upload' && <HeadBulkUploadPanel />}
             {activeTab === 'head_library' && <HeadLibraryManagerPanel />}
             {activeTab === 'head_leads' && <LeadsManagementPanel />}
-            {activeTab === 'head_emails' && <HeadEmailsPanel />}
+            {activeTab === 'head_emails' && <HeadEmailsPanel currentUser={user} />}
             {activeTab === 'head_batches' && <HeadBatchesPanel />}
             {activeTab === 'head_attendance' && <TrainerAttendancePanel user={user} />}
+            {activeTab === 'head_permissions' && <HeadPermissionsPanel />}
             
             {/* Events Panels */}
-            {['student_events', 'trainer_events', 'associate_events', 'head_events'].includes(activeTab) && <EventsPanel user={user} />}
+            {['student_events', 'trainer_events', 'associate_events', 'head_events'].includes(activeTab) && (user.role === 'head' || user.permissions?.manage_events) && <EventsPanel user={user} />}
 
             {/* Study Material Panels */}
-            {['student_notes', 'trainer_notes', 'head_notes'].includes(activeTab) && <StudyMaterialPanel user={user} />}
+            {['student_notes', 'trainer_notes', 'head_notes'].includes(activeTab) && (user.role === 'head' || user.permissions?.manage_notes) && <StudyMaterialPanel user={user} />}
 
             {/* Resume Upload Panel */}
-            {activeTab === 'student_resume' && <StudentResumeUploadPanel />}
+            {activeTab === 'student_resume' && user.permissions?.manage_resumes && <StudentResumeUploadPanel />}
 
             {/* Student Resumes List Panel */}
-            {['trainer_resumes', 'head_resumes'].includes(activeTab) && <ResumesListPanel />}
+            {['trainer_resumes', 'head_resumes'].includes(activeTab) && (user.role === 'head' || user.permissions?.manage_resumes) && <ResumesListPanel />}
 
             {/* Weekly Tests Panel */}
-            {activeTab === 'weekly_tests' && <StudentTestsPanel />}
-            {activeTab === 'trainer_test_builder' && <TrainerTestPanel user={user} />}
+            {activeTab === 'weekly_tests' && user.permissions?.manage_tests && <StudentTestsPanel />}
+            {activeTab === 'trainer_test_builder' && (user.role === 'head' || user.permissions?.manage_tests) && <TrainerTestPanel user={user} />}
 
             {/* AI Placement Suite Panel */}
-            {activeTab === 'ai_placement_suite' && <AIPlacementSuitePanel user={user} />}
+            {activeTab === 'ai_placement_suite' && (user.role === 'head' || user.permissions?.ai_placement_suite) && <AIPlacementSuitePanel user={user} />}
 
             {/* Digital Library Panel */}
-            {activeTab === 'digital_library' && <DigitalLibraryPanel user={user} />}
+            {activeTab === 'digital_library' && (user.role === 'head' || user.permissions?.digital_library) && <DigitalLibraryPanel user={user} />}
           </main>
         </div>
       ) : (
         /* Guest & Login View */
         <div className="auth-wrapper">
           {isApplying ? (
-            <div className="glass-card auth-card">
+            <div className="glass-card auth-card" style={{ maxWidth: '800px', width: '90%' }}>
               <h2 style={{ marginBottom: '8px' }}>Apply for Admission</h2>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>Fill in details to apply for batch openings.</p>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>Fill in your academic details and upload documents to apply for upcoming batch openings.</p>
               
-              {error && <div className="alert-banner error">{error}</div>}
+              {error && <div className="alert-banner error" style={{ marginBottom: '16px' }}>{error}</div>}
+              {success && <div className="alert-banner success" style={{ marginBottom: '16px' }}>{success}</div>}
 
               <form onSubmit={handleApply}>
-                <div className="form-group">
-                  <label className="form-label">Select Batch</label>
-                  <select 
-                    className="form-control" 
-                    required 
-                    value={applyBatchId} 
-                    onChange={e => setApplyBatchId(e.target.value)}
-                  >
-                    <option value="">-- Choose Batch --</option>
-                    {batchesOpen.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                  
+                  {/* Select Batch */}
+                  <div className="form-group">
+                    <label className="form-label">Select Upcoming Batch</label>
+                    <select 
+                      className="form-control" 
+                      required 
+                      value={applyBatchId} 
+                      onChange={e => setApplyBatchId(e.target.value)}
+                    >
+                      <option value="">-- Choose Batch --</option>
+                      {batchesOpen.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Name */}
+                  <div className="form-group">
+                    <label className="form-label">Full Name</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      required 
+                      value={applyName} 
+                      onChange={e => setApplyName(e.target.value)} 
+                      placeholder="Enter full name"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="form-group">
+                    <label className="form-label">Email Address</label>
+                    <input 
+                      type="email" 
+                      className="form-control" 
+                      required 
+                      value={applyEmail} 
+                      onChange={e => setApplyEmail(e.target.value)} 
+                      placeholder="name@example.com"
+                    />
+                  </div>
+
+                  {/* Age */}
+                  <div className="form-group">
+                    <label className="form-label">Age</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      required 
+                      value={applyAge} 
+                      onChange={e => setApplyAge(e.target.value)} 
+                      placeholder="e.g. 21"
+                    />
+                  </div>
+
+                  {/* Gender */}
+                  <div className="form-group">
+                    <label className="form-label">Gender</label>
+                    <select 
+                      className="form-control" 
+                      required 
+                      value={applyGender} 
+                      onChange={e => setApplyGender(e.target.value)}
+                    >
+                      <option value="">-- Select Gender --</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  {/* Degree with specialization */}
+                  <div className="form-group">
+                    <label className="form-label">Degree with Specialization</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      required 
+                      value={applyDegree} 
+                      onChange={e => setApplyDegree(e.target.value)} 
+                      placeholder="e.g. B.Tech Computer Science"
+                    />
+                  </div>
+
+                  {/* Branch */}
+                  <div className="form-group">
+                    <label className="form-label">Branch</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      required 
+                      value={applyBranch} 
+                      onChange={e => setApplyBranch(e.target.value)} 
+                      placeholder="e.g. CSE / IT / ECE"
+                    />
+                  </div>
+
+                  {/* Passout Year */}
+                  <div className="form-group">
+                    <label className="form-label">Passout Year</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      required 
+                      value={applyPassout} 
+                      onChange={e => setApplyPassout(e.target.value)} 
+                      placeholder="e.g. 2026"
+                    />
+                  </div>
+
+                  {/* College Percentage */}
+                  <div className="form-group">
+                    <label className="form-label">College Percentage / CGPA</label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      className="form-control" 
+                      required 
+                      value={applyPercentage} 
+                      onChange={e => setApplyPercentage(e.target.value)} 
+                      placeholder="e.g. 82.5"
+                    />
+                  </div>
+
+                  {/* Any Arrears */}
+                  <div className="form-group">
+                    <label className="form-label">Any Arrears?</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      required 
+                      value={applyArrears} 
+                      onChange={e => setApplyArrears(e.target.value)} 
+                      placeholder="e.g. No, or Yes (1 History)"
+                    />
+                  </div>
+
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Full Name</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    required 
-                    value={applyName} 
-                    onChange={e => setApplyName(e.target.value)} 
-                    placeholder="Enter full name"
-                  />
+
+                <h3 style={{ marginTop: '24px', marginBottom: '16px', fontSize: '1.1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>Documents Upload (PDF / Images)</h3>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                  
+                  {/* 10th Marksheet */}
+                  <div className="form-group">
+                    <label className="form-label">10th Marksheet *</label>
+                    <input 
+                      type="file" 
+                      className="form-control" 
+                      required
+                      onChange={e => setFile10th(e.target.files[0])}
+                    />
+                  </div>
+
+                  {/* 12th Marksheet */}
+                  <div className="form-group">
+                    <label className="form-label">12th Marksheet *</label>
+                    <input 
+                      type="file" 
+                      className="form-control" 
+                      required
+                      onChange={e => setFile12th(e.target.files[0])}
+                    />
+                  </div>
+
+                  {/* Resume */}
+                  <div className="form-group">
+                    <label className="form-label">Resume / CV *</label>
+                    <input 
+                      type="file" 
+                      className="form-control" 
+                      required
+                      onChange={e => setFileResume(e.target.files[0])}
+                    />
+                  </div>
+
+                  {/* UG Marksheet */}
+                  <div className="form-group">
+                    <label className="form-label">UG Marksheet *</label>
+                    <input 
+                      type="file" 
+                      className="form-control" 
+                      required
+                      onChange={e => setFileUg(e.target.files[0])}
+                    />
+                  </div>
+
+                  {/* Provisional Certificate */}
+                  <div className="form-group">
+                    <label className="form-label">Provisional Certificate *</label>
+                    <input 
+                      type="file" 
+                      className="form-control" 
+                      required
+                      onChange={e => setFileProvisional(e.target.files[0])}
+                    />
+                  </div>
+
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Email Address</label>
-                  <input 
-                    type="email" 
-                    className="form-control" 
-                    required 
-                    value={applyEmail} 
-                    onChange={e => setApplyEmail(e.target.value)} 
-                    placeholder="name@example.com"
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
                   <button type="submit" className="btn btn-primary" style={{ flexGrow: 1 }}>Submit Application</button>
                   <button type="button" className="btn btn-secondary" onClick={() => setIsApplying(false)}>Back to Login</button>
                 </div>
@@ -770,7 +1027,7 @@ function TrainerAttendancePanel({ user }) {
         const schemaData = await api.attendance.getSchema();
         setColumns(schemaData.expected_columns || []);
         
-        const batchData = await api.batches.list();
+        const batchData = await api.batches.list(false, 'ongoing');
         if (user.role === 'trainer') {
           const assigned = user.classes_assigned || [];
           setBatches(batchData.filter(b => assigned.includes(b.name)));
@@ -1393,6 +1650,218 @@ function TrainerAttendancePanel({ user }) {
   );
 }
 
+// ==========================================
+// ACCESS CONTROL / ROLE PERMISSIONS PANEL
+// ==========================================
+function HeadPermissionsPanel() {
+  const [permissions, setPermissions] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('trainer'); // trainer, associate, student
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const fetchPermissions = async () => {
+    try {
+      setLoading(true);
+      const data = await api.auth.getPermissions();
+      setPermissions(data);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to fetch permissions.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPermissions();
+  }, []);
+
+  const handleToggle = (role, key) => {
+    setPermissions(prev => ({
+      ...prev,
+      [role]: {
+        ...prev[role],
+        [key]: !prev[role]?.[key]
+      }
+    }));
+  };
+
+  const handleSave = async () => {
+    setError('');
+    setSuccess('');
+    setSaving(true);
+    try {
+      const rolePerms = permissions[selectedRole] || {};
+      await api.auth.updatePermissions(selectedRole, rolePerms);
+      setSuccess(`Permissions updated successfully for ${selectedRole}!`);
+    } catch (err) {
+      setError(err.message || 'Failed to update permissions.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm(`Are you sure you want to reset permissions for ${selectedRole} to defaults?`)) return;
+    
+    const defaults = {
+      trainer: {
+        upload_attendance: true,
+        view_attendance: true,
+        manage_library: false,
+        manage_leads: false,
+        manage_events: true,
+        manage_notes: true,
+        manage_resumes: true,
+        manage_tests: true,
+        ai_placement_suite: true,
+        digital_library: true,
+        manage_applications: false,
+      },
+      associate: {
+        upload_attendance: false,
+        view_attendance: true,
+        manage_library: true,
+        manage_leads: true,
+        manage_events: true,
+        manage_notes: false,
+        manage_resumes: false,
+        manage_tests: false,
+        ai_placement_suite: false,
+        digital_library: false,
+        manage_applications: true,
+      },
+      student: {
+        upload_attendance: false,
+        view_attendance: true,
+        manage_library: true,
+        manage_leads: true,
+        manage_events: true,
+        manage_notes: true,
+        manage_resumes: true,
+        manage_tests: true,
+        ai_placement_suite: true,
+        digital_library: true,
+        manage_applications: false,
+      }
+    };
+
+    setError('');
+    setSuccess('');
+    setSaving(true);
+    try {
+      const defaultPerms = defaults[selectedRole];
+      await api.auth.updatePermissions(selectedRole, defaultPerms);
+      setPermissions(prev => ({
+        ...prev,
+        [selectedRole]: defaultPerms
+      }));
+      setSuccess(`Reset ${selectedRole} permissions to default values.`);
+    } catch (err) {
+      setError(err.message || 'Failed to reset permissions.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const permissionLabels = {
+    upload_attendance: { title: "Upload Attendance", desc: "Allow uploading XLSX spreadsheets and manually updating attendance sheets" },
+    view_attendance: { title: "View Attendance", desc: "Allow viewing class attendance statistics, logs, summaries, or student specific attendance" },
+    manage_library: { title: "Library Manager", desc: "Access to lending books, lending logs, library manager tab, or return copy panels" },
+    manage_leads: { title: "Job Leads CRM", desc: "Access to the job placement boards, lead tracking dashboards, or pipeline CRM panels" },
+    manage_applications: { title: "Applications Manager", desc: "Allow reviewing admission applications and status toggle options" },
+    manage_events: { title: "Events & Calendar", desc: "Access to listing calendar details, guest lectures, or editing schedules" },
+    manage_notes: { title: "Upload Study Notes", desc: "Access to posting notes files, PDFs, slides, or cleaning material logs" },
+    manage_resumes: { title: "Student Resumes Review", desc: "Access to searching, reviewing, or downloading student CVs" },
+    manage_tests: { title: "Tests & Test Builder", desc: "Access to weekly test panels, AI question generator, or student test lists" },
+    ai_placement_suite: { title: "AI Placement Suite", desc: "Access to the Monaco code playground, ATS optimizer, and AI mock interviewer bots" },
+    digital_library: { title: "Digital Library Access", desc: "Access to PDF textbook catalogs, note references, and full text search suites" }
+  };
+
+  const activePerms = permissions[selectedRole] || {};
+
+  return (
+    <div>
+      <h2 style={{ marginBottom: '8px' }}>Access Control Manager</h2>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+        Dynamic Permission Management: Control which features and panels each user role can access in real-time.
+      </p>
+
+      {error && <div className="alert-banner error" style={{ marginBottom: '20px' }}>{error}</div>}
+      {success && <div className="alert-banner success" style={{ marginBottom: '20px' }}>{success}</div>}
+
+      {/* Role Selection Tabs */}
+      <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px', paddingBottom: '12px' }}>
+        {['trainer', 'associate', 'student'].map(role => (
+          <button 
+            key={role}
+            className={`btn ${selectedRole === role ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setSelectedRole(role); setError(''); setSuccess(''); }}
+            style={{ padding: '8px 16px', borderRadius: '8px', textTransform: 'capitalize' }}
+          >
+            {role === 'trainer' ? 'Trainers' : role === 'associate' ? 'Center Associates' : 'Students'}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading system permissions configuration...</div>
+      ) : (
+        <div className="glass-card" style={{ padding: '24px 32px' }}>
+          <h3 style={{ marginBottom: '20px', textTransform: 'capitalize' }} className="title-gradient">
+            Manage {selectedRole === 'trainer' ? 'Trainer' : selectedRole === 'associate' ? 'Associate' : 'Student'} Permissions
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
+            {Object.keys(permissionLabels).map(key => {
+              const info = permissionLabels[key];
+              const isChecked = !!activePerms[key];
+              return (
+                <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ paddingRight: '20px' }}>
+                    <div style={{ fontWeight: '600', fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{info.title}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{info.desc}</div>
+                  </div>
+                  
+                  {/* Premium toggle switch styling uses classes defined in index.css */}
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={isChecked}
+                      onChange={() => handleToggle(selectedRole, key)}
+                    />
+                    <span className="slider" />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleReset}
+              disabled={saving}
+            >
+              Reset to Defaults
+            </button>
+            <button 
+              className="btn btn-primary" 
+              style={{ minWidth: '150px' }}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Permissions'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeadsManagementPanel() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1824,6 +2293,13 @@ function AssociateLibraryPanel() {
 function ApplicationsPanel() {
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedApp, setSelectedApp] = useState(null);
+  
+  // Interview Form States
+  const [interviewDate, setInterviewDate] = useState('');
+  const [interviewTime, setInterviewTime] = useState('');
+  const [interviewLink, setInterviewLink] = useState('');
+  const [interviewNotes, setInterviewNotes] = useState('');
 
   const fetchApps = async () => {
     try {
@@ -1842,13 +2318,49 @@ function ApplicationsPanel() {
 
   const handleUpdate = async (id, status) => {
     try {
-      await api.batches.updateApplicationStatus(id, status);
+      const updatedApp = await api.batches.updateApplicationStatus(id, status);
       alert(`Application marked as ${status}.`);
+      if (selectedApp && selectedApp.id === id) {
+        setSelectedApp(updatedApp);
+      }
       fetchApps();
     } catch (err) {
       alert(err.message);
     }
   };
+
+  const handleScheduleInterview = async (e) => {
+    e.preventDefault();
+    if (!selectedApp) return;
+    try {
+      const updatedApp = await api.batches.scheduleInterview(selectedApp.id, {
+        interview_date: interviewDate,
+        interview_time: interviewTime,
+        interview_link: interviewLink,
+        interviewer_notes: interviewNotes
+      });
+      alert('Interview details saved successfully and invitation email sent.');
+      setSelectedApp(updatedApp);
+      fetchApps();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // Pre-fill interview states if already set
+  useEffect(() => {
+    if (selectedApp && selectedApp.interview_details) {
+      setInterviewDate(selectedApp.interview_details.interview_date || '');
+      setInterviewTime(selectedApp.interview_details.interview_time || '');
+      setInterviewLink(selectedApp.interview_details.interview_link || '');
+      setInterviewNotes(selectedApp.interview_details.interviewer_notes || '');
+    } else {
+      setInterviewDate('');
+      setInterviewTime('');
+      setInterviewLink('');
+      setInterviewNotes('');
+    }
+  }, [selectedApp]);
 
   return (
     <div>
@@ -1865,9 +2377,10 @@ function ApplicationsPanel() {
                 <th>Applicant Name</th>
                 <th>Email ID</th>
                 <th>Target Batch ID</th>
-                <th>Submission Date</th>
+                <th>Passing Year</th>
+                <th>CGPA / %</th>
                 <th>Current Status</th>
-                <th>Approval Actions</th>
+                <th>Details & Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1876,31 +2389,259 @@ function ApplicationsPanel() {
                   <td style={{ fontWeight: '600' }}>{a.student_name}</td>
                   <td>{a.student_email}</td>
                   <td>{a.batch_id}</td>
-                  <td>{new Date(a.applied_at).toLocaleDateString()}</td>
+                  <td>{a.passout_year || 'N/A'}</td>
+                  <td>{a.college_percentage ? `${a.college_percentage}%` : 'N/A'}</td>
                   <td>
                     {a.status === 'pending' && <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--accent-amber)' }}>Pending</span>}
                     {a.status === 'approved' && <span className="badge badge-present">Approved</span>}
                     {a.status === 'rejected' && <span className="badge badge-absent">Rejected</span>}
                   </td>
                   <td>
-                    {a.status === 'pending' ? (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'var(--accent-emerald)', boxShadow: 'none' }} onClick={() => handleUpdate(a.id, 'approved')}>Approve</button>
-                        <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleUpdate(a.id, 'rejected')}>Reject</button>
-                      </div>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Completed</span>
-                    )}
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      onClick={() => setSelectedApp(a)}
+                    >
+                      View Details
+                    </button>
                   </td>
                 </tr>
               ))}
               {apps.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No student applications submitted yet.</td>
+                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No student applications submitted yet.</td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Premium Detail Modal/Drawer */}
+      {selectedApp && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div className="glass-card" style={{
+            maxWidth: '750px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '30px',
+            position: 'relative'
+          }}>
+            <button 
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                color: 'var(--text-secondary)'
+              }}
+              onClick={() => setSelectedApp(null)}
+            >
+              &times;
+            </button>
+
+            <h3 style={{ fontSize: '1.4rem', marginBottom: '4px' }}>Applicant Profile</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Submitted on {new Date(selectedApp.applied_at).toLocaleDateString()}</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Full Name</strong>
+                <span style={{ fontSize: '1.05rem', fontWeight: '500' }}>{selectedApp.student_name}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Email Address</strong>
+                <span>{selectedApp.student_email}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Age / Gender</strong>
+                <span>{selectedApp.age || 'N/A'} / {selectedApp.gender || 'N/A'}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Degree & Specialization</strong>
+                <span>{selectedApp.degree || 'N/A'}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Branch</strong>
+                <span>{selectedApp.branch || 'N/A'}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Passout Year</strong>
+                <span>{selectedApp.passout_year || 'N/A'}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>College Percentage / CGPA</strong>
+                <span>{selectedApp.college_percentage ? `${selectedApp.college_percentage}%` : 'N/A'}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Arrears Info</strong>
+                <span>{selectedApp.any_arrears || 'N/A'}</span>
+              </div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Application Status</strong>
+                <span className="badge" style={
+                  selectedApp.status === 'approved' ? { background: 'rgba(16,185,129,0.15)', color: 'var(--accent-emerald)', textTransform: 'capitalize' } :
+                  selectedApp.status === 'rejected' ? { background: 'rgba(239,68,68,0.15)', color: 'var(--accent-ruby)', textTransform: 'capitalize' } :
+                  { background: 'rgba(245,158,11,0.15)', color: 'var(--accent-amber)', textTransform: 'capitalize' }
+                }>
+                  {selectedApp.status}
+                </span>
+              </div>
+            </div>
+
+            <h4 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px' }}>Uploaded Documents</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+              
+              {/* 10th Marksheet */}
+              <div className="flex-between" style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.9rem' }}>10th Marksheet</span>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                  onClick={() => handleDownloadFile(`${BASE_URL}/batches/applications/${selectedApp.id}/download/marksheet_10th`, `${selectedApp.student_name.replace(/\s+/g, '_')}_10th_marksheet.pdf`)}
+                >
+                  Download
+                </button>
+              </div>
+
+              {/* 12th Marksheet */}
+              <div className="flex-between" style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.9rem' }}>12th Marksheet</span>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                  onClick={() => handleDownloadFile(`${BASE_URL}/batches/applications/${selectedApp.id}/download/marksheet_12th`, `${selectedApp.student_name.replace(/\s+/g, '_')}_12th_marksheet.pdf`)}
+                >
+                  Download
+                </button>
+              </div>
+
+              {/* Resume */}
+              <div className="flex-between" style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.9rem' }}>Resume / CV</span>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                  onClick={() => handleDownloadFile(`${BASE_URL}/batches/applications/${selectedApp.id}/download/resume`, `${selectedApp.student_name.replace(/\s+/g, '_')}_resume.pdf`)}
+                >
+                  Download
+                </button>
+              </div>
+
+              {/* UG Marksheet */}
+              <div className="flex-between" style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.9rem' }}>UG Marksheet</span>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                  onClick={() => handleDownloadFile(`${BASE_URL}/batches/applications/${selectedApp.id}/download/ug_marksheet`, `${selectedApp.student_name.replace(/\s+/g, '_')}_ug_marksheet.pdf`)}
+                >
+                  Download
+                </button>
+              </div>
+
+              {/* Provisional Cert */}
+              <div className="flex-between" style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.9rem' }}>Provisional Cert</span>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                  onClick={() => handleDownloadFile(`${BASE_URL}/batches/applications/${selectedApp.id}/download/provisional_certificate`, `${selectedApp.student_name.replace(/\s+/g, '_')}_provisional_certificate.pdf`)}
+                >
+                  Download
+                </button>
+              </div>
+
+            </div>
+
+            {selectedApp.status === 'pending' && (
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ background: 'var(--accent-emerald)', boxShadow: 'none' }}
+                  onClick={() => handleUpdate(selectedApp.id, 'approved')}
+                >
+                  Approve Application
+                </button>
+                <button 
+                  className="btn btn-danger" 
+                  onClick={() => handleUpdate(selectedApp.id, 'rejected')}
+                >
+                  Reject Application
+                </button>
+              </div>
+            )}
+
+            {selectedApp.status === 'approved' && (
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '20px' }}>
+                <h4 style={{ marginBottom: '16px' }}>Interview Scheduling</h4>
+                <form onSubmit={handleScheduleInterview}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Interview Date</label>
+                      <input 
+                        type="date" 
+                        className="form-control" 
+                        required 
+                        value={interviewDate} 
+                        onChange={e => setInterviewDate(e.target.value)} 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Interview Time</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        required 
+                        value={interviewTime} 
+                        placeholder="e.g. 11:00 AM IST"
+                        onChange={e => setInterviewTime(e.target.value)} 
+                      />
+                    </div>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="form-label">Video Conference Meeting Link</label>
+                      <input 
+                        type="url" 
+                        className="form-control" 
+                        required 
+                        value={interviewLink} 
+                        placeholder="e.g. https://meet.google.com/abc-defg-hij"
+                        onChange={e => setInterviewLink(e.target.value)} 
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Interviewer Notes (Optional)</label>
+                    <textarea 
+                      className="form-control" 
+                      rows="2" 
+                      value={interviewNotes} 
+                      placeholder="Special instructions for candidate..."
+                      onChange={e => setInterviewNotes(e.target.value)} 
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ display: 'block', marginLeft: 'auto', marginTop: '12px' }}>
+                    Save & Send Interview Invitation Email
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1971,10 +2712,10 @@ function HeadDashboardPanel({ setTab }) {
           <div className="stat-number">{stats.leads}</div>
           <span style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)' }}>Create listings &rarr;</span>
         </div>
-        <div className="glass-card" style={{ cursor: 'pointer' }} onClick={() => setTab('head_bulk_upload')}>
+        <div className="glass-card" style={{ cursor: 'pointer' }} onClick={() => setTab('associate_applications')}>
           <div style={{ color: 'var(--text-secondary)' }}>Pending Batch Applications</div>
           <div className="stat-number">{stats.applications}</div>
-          <span style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)' }}>Verify enrollment &rarr;</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)' }}>Review applications &rarr;</span>
         </div>
       </div>
 
@@ -1986,6 +2727,7 @@ function HeadDashboardPanel({ setTab }) {
         </p>
         <ul style={{ marginTop: '12px', paddingLeft: '20px', color: 'var(--text-secondary)', lineHeight: '1.8', fontSize: '0.95rem' }}>
           <li><strong>Records Manager:</strong> Add, update, delete, or bulk upload student accounts and library catalogs.</li>
+          <li><strong>Admissions CRM:</strong> Review submitted student applications, download documents, and schedule interviews.</li>
           <li><strong>Follow-up Mail Box:</strong> Analyze outbox records matching keywords with smart recipients search.</li>
           <li><strong>Batch Openings:</strong> Create and publish openings where customers can submit admission forms.</li>
           <li><strong>Class Attendance:</strong> Access Trainer-level class excel upload.</li>
@@ -2028,7 +2770,7 @@ function HeadBulkUploadPanel() {
       const bList = await api.library.listBooks();
       setBooks(bList);
       
-      const batchList = await api.batches.list();
+      const batchList = await api.batches.list(false, 'ongoing');
       setBatches(batchList);
     } catch (err) {
       console.error(err);
@@ -2775,7 +3517,7 @@ function HeadLibraryManagerPanel() {
   );
 }
 
-function HeadEmailsPanel() {
+function HeadEmailsPanel({ currentUser }) {
   const [sentList, setSentList] = useState([]);
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState('');
@@ -2792,6 +3534,19 @@ function HeadEmailsPanel() {
   const [recipientQuery, setRecipientQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Mail settings state
+  const [mailSettings, setMailSettings] = useState({
+    subject_keywords: '',
+    body_keywords: '',
+    exclude_keywords: '',
+    required_files: ''
+  });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
+  const [settingsError, setSettingsError] = useState('');
+  const isHeadAdmin = currentUser?.role === 'head';
+
   const fetchEmails = async () => {
     try {
       const data = await api.emails.listSent(keyword, category);
@@ -2806,6 +3561,32 @@ function HeadEmailsPanel() {
   useEffect(() => {
     fetchEmails();
   }, [keyword, category]);
+
+  const fetchMailSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      const settings = await api.emails.getSettings();
+      setMailSettings({
+        subject_keywords: (settings.subject_keywords || []).join('\n'),
+        body_keywords: (settings.body_keywords || []).join('\n'),
+        exclude_keywords: (settings.exclude_keywords || []).join('\n'),
+        required_files: (settings.required_files || []).join('\n')
+      });
+    } catch (err) {
+      console.error(err);
+      setSettingsError(err.message || 'Failed to load mail settings.');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isHeadAdmin) {
+      fetchMailSettings();
+    } else {
+      setSettingsLoading(false);
+    }
+  }, [isHeadAdmin]);
 
   // Recipient Autocomplete triggers
   useEffect(() => {
@@ -2849,12 +3630,121 @@ function HeadEmailsPanel() {
     }
   };
 
+  const handleSaveMailSettings = async () => {
+    if (!isHeadAdmin) return;
+    setSettingsError('');
+    setSettingsMessage('');
+    setSettingsSaving(true);
+
+    try {
+      const payload = {
+        subject_keywords: mailSettings.subject_keywords
+          .split(/\n|,/)
+          .map(item => item.trim())
+          .filter(Boolean),
+        body_keywords: mailSettings.body_keywords
+          .split(/\n|,/)
+          .map(item => item.trim())
+          .filter(Boolean),
+        exclude_keywords: mailSettings.exclude_keywords
+          .split(/\n|,/)
+          .map(item => item.trim())
+          .filter(Boolean),
+        required_files: mailSettings.required_files
+          .split(/\n|,/)
+          .map(item => item.trim())
+          .filter(Boolean),
+      };
+      const data = await api.emails.saveSettings(payload);
+      setMailSettings({
+        subject_keywords: (data.subject_keywords || []).join('\n'),
+        body_keywords: (data.body_keywords || []).join('\n'),
+        exclude_keywords: (data.exclude_keywords || []).join('\n'),
+        required_files: (data.required_files || []).join('\n')
+      });
+      setSettingsMessage('Mail settings updated successfully.');
+    } catch (err) {
+      setSettingsError(err.message || 'Failed to save mail settings.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   return (
     <div>
       <h2>Email outbox & Follow-up Mail Box</h2>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
         Log sent mail sorted by keyword filters. Look up recipients from recent logs history.
       </p>
+
+      {isHeadAdmin && (
+        <div className="glass-card" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Follow-up Mail Settings</h3>
+              <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Only area head/admin can change the mailbox keywords and the actual workflow files required for the follow-up process.
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={handleSaveMailSettings} disabled={settingsSaving}>
+              {settingsSaving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+
+          {settingsMessage && <div className="alert-banner success" style={{ marginBottom: '16px' }}>{settingsMessage}</div>}
+          {settingsError && <div className="alert-banner error" style={{ marginBottom: '16px' }}>{settingsError}</div>}
+
+          {settingsLoading ? (
+            <p>Loading mail settings...</p>
+          ) : (
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Subject Keywords</label>
+                <textarea
+                  className="form-control"
+                  rows="4"
+                  value={mailSettings.subject_keywords}
+                  onChange={e => setMailSettings(prev => ({ ...prev, subject_keywords: e.target.value }))}
+                  placeholder="Enter keywords separated by commas or new lines"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Body Keywords</label>
+                <textarea
+                  className="form-control"
+                  rows="4"
+                  value={mailSettings.body_keywords}
+                  onChange={e => setMailSettings(prev => ({ ...prev, body_keywords: e.target.value }))}
+                  placeholder="Enter keywords separated by commas or new lines"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Exclude Keywords</label>
+                <textarea
+                  className="form-control"
+                  rows="4"
+                  value={mailSettings.exclude_keywords}
+                  onChange={e => setMailSettings(prev => ({ ...prev, exclude_keywords: e.target.value }))}
+                  placeholder="Enter exclusions separated by commas or new lines"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Required Process Files</label>
+                <textarea
+                  className="form-control"
+                  rows="4"
+                  value={mailSettings.required_files}
+                  onChange={e => setMailSettings(prev => ({ ...prev, required_files: e.target.value }))}
+                  placeholder="e.g. config.json, credentials.json, token.json, keyword_matcher.py"
+                />
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                  Enter the actual files required for this mailbox workflow, one per line or comma-separated.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid-2" style={{ marginBottom: '32px' }}>
         {/* Compose Form */}
@@ -3001,6 +3891,7 @@ function HeadBatchesPanel() {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [isOpen, setIsOpen] = useState(true);
+  const [group, setGroup] = useState('ongoing');
 
   const fetchBatches = async () => {
     try {
@@ -3023,12 +3914,14 @@ function HeadBatchesPanel() {
       await api.batches.create({
         name,
         description: desc,
-        is_open: isOpen
+        is_open: isOpen,
+        group: group
       });
       alert('Batch opening created successfully!');
       setName('');
       setDesc('');
       setIsOpen(true);
+      setGroup('ongoing');
       fetchBatches();
     } catch (err) {
       alert(err.message);
@@ -3054,6 +3947,13 @@ function HeadBatchesPanel() {
               <textarea className="form-control" required rows="3" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Batch course description, CTC info etc." />
             </div>
             <div className="form-group">
+              <label className="form-label">Batch Group / Type</label>
+              <select className="form-control" value={group} onChange={e => setGroup(e.target.value)}>
+                <option value="ongoing">Ongoing (Current Batch)</option>
+                <option value="upcoming">Upcoming (Next Batch Applications)</option>
+              </select>
+            </div>
+            <div className="form-group">
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={isOpen} onChange={e => setIsOpen(e.target.checked)} />
                 Open for Public Applications
@@ -3068,7 +3968,7 @@ function HeadBatchesPanel() {
         {/* Batches list */}
         <div className="glass-card">
           <h3>Current Batches Catalog</h3>
-          <div style={{ marginTop: '16px', maxHeight: '350px', overflowY: 'auto' }}>
+          <div style={{ marginTop: '16px', maxHeight: '420px', overflowY: 'auto' }}>
             {loading ? (
               <p>Loading batches...</p>
             ) : batches.length === 0 ? (
@@ -3078,11 +3978,16 @@ function HeadBatchesPanel() {
                 <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
                   <div className="flex-between">
                     <span style={{ fontWeight: '600' }}>{b.name}</span>
-                    {b.is_open ? (
-                      <span className="badge badge-present">Open</span>
-                    ) : (
-                      <span className="badge badge-absent">Closed</span>
-                    )}
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <span className="badge" style={b.group === 'upcoming' ? { background: 'rgba(99,102,241,0.15)', color: 'var(--primary-color)', textTransform: 'capitalize' } : { background: 'rgba(107,114,128,0.15)', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                        {b.group || 'ongoing'}
+                      </span>
+                      {b.is_open ? (
+                        <span className="badge badge-present">Open</span>
+                      ) : (
+                        <span className="badge badge-absent">Closed</span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{b.description}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>Created {new Date(b.created_at).toLocaleDateString()}</div>
@@ -3362,7 +4267,7 @@ function EventsPanel({ user }) {
   );
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:9000/api').replace(/\/$/, '');
 
 const handleDownloadFile = async (url, filename) => {
   try {
@@ -6069,6 +6974,8 @@ function DigitalLibraryPanel({ user }) {
   const [currentParagraphIndex, setCurrentParagraphIndex] = React.useState(0);
   const [paragraphs, setParagraphs] = React.useState([]);
   const [skipFrontMatter, setSkipFrontMatter] = React.useState(true);
+  const [autoAdvance, setAutoAdvance] = React.useState(true);
+  const [playbackMessage, setPlaybackMessage] = React.useState('Ready to begin narration');
 
   // Helper to categorize text and filter out PDF artifacts (running headers, page numbers, copyright/TOC)
   const processBookParagraphs = (extractedText, title, author) => {
@@ -6217,6 +7124,7 @@ function DigitalLibraryPanel({ user }) {
       }
       
       setCurrentParagraphIndex(0);
+      setPlaybackMessage(`Prepared ${detailedBook.title} for narration`);
       
       if (mode === 'listen') {
         setActiveSubTab('audiobooks');
@@ -6239,8 +7147,17 @@ function DigitalLibraryPanel({ user }) {
     
     setCurrentParagraphIndex(index);
     
-    const textToSpeak = paragraphs[index].text || paragraphs[index];
+    const paragraph = paragraphs[index];
+    const textToSpeak = paragraph.text || paragraph;
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    
+    if (paragraph?.isIntro) {
+      setPlaybackMessage('Opening narration with a warm introduction');
+    } else if (paragraph?.isMetadata) {
+      setPlaybackMessage('Skipping front matter and moving to the main chapter');
+    } else {
+      setPlaybackMessage(`Now reading section ${index + 1} of ${paragraphs.length}`);
+    }
     
     // Set voice
     const voiceObj = voices.find(v => v.name === selectedVoice);
@@ -6259,15 +7176,22 @@ function DigitalLibraryPanel({ user }) {
       }
       
       if (nextIndex < paragraphs.length) {
-        speakParagraph(nextIndex);
+        if (autoAdvance) {
+          speakParagraph(nextIndex);
+        } else {
+          setIsPlaying(false);
+          setPlaybackMessage('Paused on the current paragraph');
+        }
       } else {
         setIsPlaying(false);
+        setPlaybackMessage('Narration complete — ready for another chapter');
       }
     };
     
     utterance.onerror = (e) => {
       if (e.error !== 'interrupted') {
         setIsPlaying(false);
+        setPlaybackMessage('Narration paused because the browser could not continue');
         console.error('SpeechSynthesis error:', e);
       }
     };
@@ -6290,6 +7214,7 @@ function DigitalLibraryPanel({ user }) {
     if (isPlaying) {
       window.speechSynthesis.cancel();
       setIsPlaying(false);
+      setPlaybackMessage('Paused on the current paragraph');
     } else {
       speakParagraph(currentParagraphIndex);
     }
@@ -6300,6 +7225,7 @@ function DigitalLibraryPanel({ user }) {
     window.speechSynthesis.cancel();
     setIsPlaying(false);
     setCurrentParagraphIndex(0);
+    setPlaybackMessage('Playback stopped — ready when you are');
   };
 
   const handlePrevParagraph = () => {
@@ -6310,6 +7236,7 @@ function DigitalLibraryPanel({ user }) {
       }
     }
     if (prevIndex >= 0) {
+      setPlaybackMessage('Jumping to the previous section');
       speakParagraph(prevIndex);
     }
   };
@@ -6322,6 +7249,7 @@ function DigitalLibraryPanel({ user }) {
       }
     }
     if (nextIndex < paragraphs.length) {
+      setPlaybackMessage('Moving to the next section');
       speakParagraph(nextIndex);
     }
   };
@@ -6413,6 +7341,8 @@ function DigitalLibraryPanel({ user }) {
   const categoriesList = ['All', 'Programming', 'Soft Skills', 'Finance', 'Career Prep', 'Other'];
 
   const canUpload = user.role === 'head' || user.role === 'trainer';
+  const playbackPercent = paragraphs.length > 0 ? ((currentParagraphIndex + 1) / paragraphs.length) * 100 : 0;
+  const activeParagraph = paragraphs[currentParagraphIndex] || null;
 
   return (
     <div className="digital-lib-container">
@@ -6636,9 +7566,37 @@ function DigitalLibraryPanel({ user }) {
                   </div>
                 </div>
 
-                <div style={{ marginTop: '8px' }}>
-                  <h3 className="title-gradient">{selectedBook.title}</h3>
+                <div className="audiobook-now-playing">
+                  <div className="audio-status-badge">
+                    <span className={`audio-status-dot ${isPlaying ? 'active' : ''}`} />
+                    {isPlaying ? 'Narrating live' : 'Ready to play'}
+                  </div>
+                  <h3 className="title-gradient" style={{ marginTop: '8px' }}>{selectedBook.title}</h3>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>by {selectedBook.author}</p>
+
+                  <div className="audio-progress-card">
+                    <div className="audio-progress-track">
+                      <div className="audio-progress-fill" style={{ width: `${playbackPercent}%` }} />
+                    </div>
+                    <div className="audio-progress-meta">
+                      <span>{`${Math.min(currentParagraphIndex + 1, paragraphs.length)} / ${paragraphs.length} paragraphs`}</span>
+                      <span>{`${Math.round(playbackPercent)}%`}</span>
+                    </div>
+                  </div>
+
+                  <div className="audio-now-reading">
+                    <span className="audio-help-pill">{playbackMessage}</span>
+                    <div className="audio-now-reading-text">
+                      {activeParagraph?.text ? `${activeParagraph.text.slice(0, 140)}${activeParagraph.text.length > 140 ? '…' : ''}` : 'Select a book to begin listening'}
+                    </div>
+                  </div>
+
+                  <div className="audio-helper-row">
+                    <label className="audio-toggle">
+                      <input type="checkbox" checked={autoAdvance} onChange={() => setAutoAdvance(!autoAdvance)} />
+                      <span>Auto-advance</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Media Audio Controllers */}

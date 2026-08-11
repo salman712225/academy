@@ -100,6 +100,7 @@ app.include_router(test_router, prefix=settings.API_V1_STR)
 # Ensure uploads directories exist
 os.makedirs(os.path.join("uploads", "notes"), exist_ok=True)
 os.makedirs(os.path.join("uploads", "resumes"), exist_ok=True)
+os.makedirs(os.path.join("uploads", "applications"), exist_ok=True)
 
 # Mount static uploads
 app.mount("/static/uploads", StaticFiles(directory="uploads"), name="uploads")

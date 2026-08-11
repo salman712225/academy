@@ -19,6 +19,7 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     id: str
     created_at: datetime
+    permissions: Optional[dict] = None
 
     class Config:
         populate_by_name = True

@@ -6,13 +6,22 @@ from bson import ObjectId
 from app.core.database import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.modules.auth.schemas import UserCreate, UserLogin, UserResponse, Token, UserUpdate
-from app.modules.auth.service import create_user, authenticate_user, get_current_user, require_role
+from app.modules.auth.service import (
+    create_user,
+    authenticate_user,
+    get_current_user,
+    require_role,
+    attach_permissions_to_user,
+    get_default_permissions_for_role
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
-    return await create_user(db, user_in)
+    user = await create_user(db, user_in)
+    await attach_permissions_to_user(db, user)
+    return user
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncIOMotorDatabase = Depends(get_db)):
@@ -22,6 +31,7 @@ async def login(credentials: UserLogin, db: AsyncIOMotorDatabase = Depends(get_d
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
+    await attach_permissions_to_user(db, user)
     access_token = create_access_token(subject=user["id"])
     return {
         "access_token": access_token,
@@ -44,6 +54,7 @@ async def list_all_users(
     users = []
     async for doc in cursor:
         doc["id"] = str(doc["_id"])
+        await attach_permissions_to_user(db, doc)
         users.append(doc)
     return users
 
@@ -54,7 +65,9 @@ async def create_user_manually(
     current_user = Depends(require_role(["head"]))
 ):
     """Create a new user manually (Area Head admin privilege)."""
-    return await create_user(db, user_in)
+    user = await create_user(db, user_in)
+    await attach_permissions_to_user(db, user)
+    return user
 
 @router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user_details(
@@ -92,6 +105,7 @@ async def update_user_details(
 
     updated_user = await db.users.find_one({"_id": ObjectId(user_id)})
     updated_user["id"] = str(updated_user["_id"])
+    await attach_permissions_to_user(db, updated_user)
     return updated_user
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -121,3 +135,37 @@ async def delete_user(
             )
 
     await db.users.delete_one({"_id": ObjectId(user_id)})
+
+@router.get("/permissions")
+async def get_permissions(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user = Depends(require_role(["head"]))
+):
+    """Retrieve permission settings for all roles (Area Head only)."""
+    roles = ["trainer", "associate", "student"]
+    results = {}
+    for role in roles:
+        doc = await db.role_permissions.find_one({"role": role})
+        if doc:
+            results[role] = doc.get("permissions", {})
+        else:
+            results[role] = get_default_permissions_for_role(role)
+    return results
+
+@router.put("/permissions/{role}")
+async def update_role_permissions(
+    role: str,
+    permissions: dict,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user = Depends(require_role(["head"]))
+):
+    """Update permissions for a specific role (Area Head only)."""
+    if role not in ["trainer", "associate", "student"]:
+        raise HTTPException(status_code=400, detail="Invalid role specified.")
+        
+    await db.role_permissions.update_one(
+        {"role": role},
+        {"$set": {"permissions": permissions}},
+        upsert=True
+    )
+    return {"status": "success", "role": role, "permissions": permissions}
