@@ -173,6 +173,12 @@ function App() {
                         AI Placement Suite
                       </li>
                     )}
+                    <li className={`nav-item ${activeTab === 'portfolio_builder' ? 'active' : ''}`} onClick={() => setActiveTab('portfolio_builder')}>
+                      Portfolio Builder
+                    </li>
+                    <li className={`nav-item ${activeTab === 'geo_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('geo_attendance')}>
+                      Geo Attendance
+                    </li>
                     {user.permissions?.digital_library && (
                       <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
                         Digital Library
@@ -214,6 +220,12 @@ function App() {
                         AI Placement Suite
                       </li>
                     )}
+                    <li className={`nav-item ${activeTab === 'portfolio_builder' ? 'active' : ''}`} onClick={() => setActiveTab('portfolio_builder')}>
+                      Portfolio Builder
+                    </li>
+                    <li className={`nav-item ${activeTab === 'geo_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('geo_attendance')}>
+                      Geo Attendance
+                    </li>
                     {user.permissions?.digital_library && (
                       <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
                         Digital Library
@@ -245,6 +257,9 @@ function App() {
                         Events & Calendar
                       </li>
                     )}
+                    <li className={`nav-item ${activeTab === 'geo_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('geo_attendance')}>
+                      Geo Attendance
+                    </li>
                   </>
                 )}
 
@@ -289,6 +304,12 @@ function App() {
                     </li>
                     <li className={`nav-item ${activeTab === 'ai_placement_suite' ? 'active' : ''}`} onClick={() => setActiveTab('ai_placement_suite')}>
                       AI Placement Suite
+                    </li>
+                    <li className={`nav-item ${activeTab === 'portfolio_builder' ? 'active' : ''}`} onClick={() => setActiveTab('portfolio_builder')}>
+                      Portfolio Builder
+                    </li>
+                    <li className={`nav-item ${activeTab === 'geo_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('geo_attendance')}>
+                      Geo Attendance
                     </li>
                     <li className={`nav-item ${activeTab === 'digital_library' ? 'active' : ''}`} onClick={() => setActiveTab('digital_library')}>
                       Digital Library
@@ -371,6 +392,9 @@ function App() {
 
             {/* AI Placement Suite Panel */}
             {activeTab === 'ai_placement_suite' && (user.role === 'head' || user.permissions?.ai_placement_suite) && <AIPlacementSuitePanel user={user} />}
+
+            {activeTab === 'portfolio_builder' && <PortfolioBuilderPanel user={user} />}
+            {activeTab === 'geo_attendance' && <GeoAttendancePanel user={user} />}
 
             {/* Digital Library Panel */}
             {activeTab === 'digital_library' && (user.role === 'head' || user.permissions?.digital_library) && <DigitalLibraryPanel user={user} />}
@@ -9316,6 +9340,1923 @@ function OutreachGeneratorPanel({ user }) {
   );
 }
 
+function PortfolioBuilderPanel({ user }) {
+  const [portfolio, setPortfolio] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [deploying, setDeploying] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState('');
+  const [activeSubTab, setActiveSubTab] = React.useState('template'); // 'template' | 'colors' | 'pages' | 'content' | 'launch'
+
+  const [newSkill, setNewSkill] = React.useState('');
+  const [newProject, setNewProject] = React.useState({ title: '', description: '', link: '' });
+  const [newExperience, setNewExperience] = React.useState({ role: '', company: '', duration: '', description: '' });
+
+  React.useEffect(() => {
+    fetchPortfolio();
+  }, []);
+
+  const fetchPortfolio = async () => {
+    try {
+      setLoading(true);
+      const userPortfolio = await api.portfolios.get();
+      setPortfolio(userPortfolio);
+    } catch (err) {
+      setError(err.message || 'Failed to load portfolio configurations.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      setSuccess('');
+      const updated = await api.portfolios.save(portfolio);
+      setPortfolio(updated);
+      setSuccess('Portfolio draft saved successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to save portfolio configuration.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleDeploy = async () => {
+    if (!portfolio) return;
+    try {
+      setDeploying(true);
+      setError('');
+      setSuccess('');
+      const nextState = !portfolio.is_deployed;
+      await api.portfolios.deploy(nextState);
+      setPortfolio(prev => ({
+        ...prev,
+        is_deployed: nextState,
+        deployed_at: nextState ? new Date().toISOString() : null
+      }));
+      setSuccess(nextState ? 'Your portfolio is now deployed live!' : 'Your portfolio is taken offline.');
+    } catch (err) {
+      setError(err.message || 'Failed to update deployment state.');
+    } finally {
+      setDeploying(false);
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    try {
+      setExporting(true);
+      setError('');
+      setSuccess('');
+      await api.portfolios.save(portfolio);
+      const blob = await api.portfolios.export();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `portfolio_${portfolio.username}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setSuccess('Static ZIP portfolio downloaded successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to download static ZIP file.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const updateField = (section, field, value) => {
+    setPortfolio(prev => ({
+      ...prev,
+      page_content: {
+        ...prev.page_content,
+        [section]: {
+          ...prev.page_content[section],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const togglePage = (pageName) => {
+    setPortfolio(prev => {
+      const enabled = [...prev.enabled_pages];
+      const idx = enabled.indexOf(pageName);
+      if (idx > -1) {
+        enabled.splice(idx, 1);
+      } else {
+        enabled.push(pageName);
+      }
+      return { ...prev, enabled_pages: enabled };
+    });
+  };
+
+  const handleAddSkill = () => {
+    if (!newSkill.trim()) return;
+    const currentSkills = portfolio.page_content.about?.skills || [];
+    if (!currentSkills.includes(newSkill.trim())) {
+      updateField('about', 'skills', [...currentSkills, newSkill.trim()]);
+    }
+    setNewSkill('');
+  };
+
+  const handleRemoveSkill = (skill) => {
+    const currentSkills = portfolio.page_content.about?.skills || [];
+    updateField('about', 'skills', currentSkills.filter(s => s !== skill));
+  };
+
+  const handleAddProject = () => {
+    if (!newProject.title.trim()) return;
+    const currentProjs = portfolio.page_content.projects || [];
+    setPortfolio(prev => ({
+      ...prev,
+      page_content: {
+        ...prev.page_content,
+        projects: [...currentProjs, { ...newProject }]
+      }
+    }));
+    setNewProject({ title: '', description: '', link: '' });
+  };
+
+  const handleRemoveProject = (index) => {
+    const currentProjs = portfolio.page_content.projects || [];
+    const updated = currentProjs.filter((_, i) => i !== index);
+    setPortfolio(prev => ({
+      ...prev,
+      page_content: {
+        ...prev.page_content,
+        projects: updated
+      }
+    }));
+  };
+
+  const handleAddExperience = () => {
+    if (!newExperience.role.trim() || !newExperience.company.trim()) return;
+    const currentExps = portfolio.page_content.experience || [];
+    setPortfolio(prev => ({
+      ...prev,
+      page_content: {
+        ...prev.page_content,
+        experience: [...currentExps, { ...newExperience }]
+      }
+    }));
+    setNewExperience({ role: '', company: '', duration: '', description: '' });
+  };
+
+  const handleRemoveExperience = (index) => {
+    const currentExps = portfolio.page_content.experience || [];
+    const updated = currentExps.filter((_, i) => i !== index);
+    setPortfolio(prev => ({
+      ...prev,
+      page_content: {
+        ...prev.page_content,
+        experience: updated
+      }
+    }));
+  };
+
+  const presets = [
+    { name: "Ocean Breeze", primary: "#3b82f6", secondary: "#1e3a8a", background: "#f8fafc", text: "#0f172a" },
+    { name: "Emerald Sunset", primary: "#10b981", secondary: "#065f46", background: "#f0fdf4", text: "#064e3b" },
+    { name: "Vibrant Creative", primary: "#f43f5e", secondary: "#be185d", background: "#0f172a", text: "#f8fafc" },
+    { name: "Minimal Charcoal", primary: "#111827", secondary: "#4b5563", background: "#fcfbf9", text: "#1f2937" }
+  ];
+
+  if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading Portfolio Builder Settings...</div>;
+  if (!portfolio) return <div style={{ color: 'var(--accent-rose)', padding: '20px' }}>Error compiling portfolio schema configurations.</div>;
+
+  const publicUrl = `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/portfolios/${portfolio.username}`;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '20px 0' }}>
+      <div className="flex-between">
+        <div>
+          <h2 className="title-gradient" style={{ fontSize: '1.8rem', fontWeight: '800' }}>Portfolio Builder</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
+            Design your professional portfolio website, host it live, or download it as a self-contained static ZIP.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn" onClick={handleSave} disabled={saving} style={{ padding: '8px 16px', background: 'transparent', borderColor: 'var(--border-color-hover)' }}>
+            {saving ? 'Saving...' : 'Save Draft'}
+          </button>
+          <button className="btn" onClick={handleDownloadZip} disabled={exporting} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--accent-indigo)', borderColor: 'var(--accent-indigo)' }}>
+            {exporting ? 'Exporting...' : 'Download ZIP'}
+          </button>
+          <button 
+            className="btn" 
+            onClick={handleToggleDeploy} 
+            disabled={deploying}
+            style={{ 
+              padding: '8px 16px', 
+              background: portfolio.is_deployed ? 'var(--accent-rose)' : 'var(--accent-emerald)', 
+              borderColor: 'transparent',
+              color: '#ffffff'
+            }}
+          >
+            {deploying ? 'Updating...' : portfolio.is_deployed ? 'Take Offline' : 'Publish Live'}
+          </button>
+        </div>
+      </div>
+
+      {error && <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid var(--accent-rose)', color: 'var(--accent-rose)', padding: '12px 16px', borderRadius: 'var(--border-radius-md)' }}>{error}</div>}
+      {success && <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-emerald)', color: 'var(--accent-emerald)', padding: '12px 16px', borderRadius: 'var(--border-radius-md)' }}>{success}</div>}
+
+      {portfolio.is_deployed && (
+        <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderColor: 'var(--accent-emerald)', background: 'rgba(16,185,129,0.02)' }}>
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--accent-emerald)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Your Portfolio is Live</span>
+            <div style={{ marginTop: '4px' }}>
+              <a href={publicUrl} target="_blank" style={{ fontWeight: '600', color: 'var(--accent-cyan)', textDecoration: 'underline' }}>{publicUrl}</a>
+            </div>
+          </div>
+          <button 
+            className="btn" 
+            style={{ padding: '4px 12px', fontSize: '0.8rem', background: 'transparent', borderColor: 'var(--accent-cyan)' }}
+            onClick={() => {
+              navigator.clipboard.writeText(publicUrl);
+              setSuccess('Public portfolio link copied to clipboard!');
+            }}
+          >
+            Copy Link
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        {[
+          { id: 'template', label: '1. Select Template' },
+          { id: 'colors', label: '2. Palette' },
+          { id: 'pages', label: '3. Choose Sections' },
+          { id: 'content', label: '4. Edit Details' },
+          { id: 'launch', label: '5. Launch settings' }
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveSubTab(t.id)}
+            style={{
+              padding: '8px 16px',
+              background: activeSubTab === t.id ? 'var(--bg-card)' : 'transparent',
+              border: '1px solid',
+              borderColor: activeSubTab === t.id ? 'var(--border-color-hover)' : 'transparent',
+              borderRadius: 'var(--border-radius-md)',
+              color: activeSubTab === t.id ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '0.9rem'
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: activeSubTab === 'launch' ? '1fr' : '1.4fr 1fr', gap: '30px' }}>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {activeSubTab === 'template' && (
+            <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '1.2rem' }}>Templates</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Select a visual theme structure for your site.</p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginTop: '10px' }}>
+                {[
+                  { id: 'modern', name: 'Modern', desc: 'Clean card system, fluid rounded glass variables.' },
+                  { id: 'minimal', name: 'Minimalist', desc: 'Serif fonts, typography focus, light outlines.' },
+                  { id: 'creative', name: 'Creative', desc: 'Space Grotesk typography, gradient titles, custom dashed border indicators.' }
+                ].map(theme => (
+                  <div
+                    key={theme.id}
+                    onClick={() => setPortfolio(prev => ({ ...prev, template_id: theme.id }))}
+                    style={{
+                      border: '1px solid',
+                      borderColor: portfolio.template_id === theme.id ? 'var(--accent-cyan)' : 'var(--border-color)',
+                      borderRadius: 'var(--border-radius-md)',
+                      padding: '16px',
+                      cursor: 'pointer',
+                      background: portfolio.template_id === theme.id ? 'rgba(6, 182, 212, 0.05)' : 'var(--bg-input)',
+                      transition: 'border-color 0.2s'
+                    }}
+                  >
+                    <div style={{ fontWeight: '700', fontSize: '1rem', color: portfolio.template_id === theme.id ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>{theme.name}</div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>{theme.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'colors' && (
+            <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <h3 style={{ fontSize: '1.2rem' }}>Color Branding</h3>
+              
+              <div>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Quick Palette Presets</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  {presets.map(p => (
+                    <button
+                      key={p.name}
+                      onClick={() => setPortfolio(prev => ({ ...prev, color_palette: { ...p } }))}
+                      className="btn"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        background: 'var(--bg-input)',
+                        borderColor: 'var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', background: p.primary }}></span>
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '10px' }}>
+                {[
+                  { field: 'primary', label: 'Primary Accent Color' },
+                  { field: 'secondary', label: 'Secondary Dark Accent' },
+                  { field: 'background', label: 'Website Background Color' },
+                  { field: 'text', label: 'Primary Text Color' }
+                ].map(c => (
+                  <div key={c.field} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{c.label}</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <input
+                        type="color"
+                        value={portfolio.color_palette[c.field] || '#ffffff'}
+                        onChange={(e) => setPortfolio(prev => ({
+                          ...prev,
+                          color_palette: {
+                            ...prev.color_palette,
+                            [c.field]: e.target.value
+                          }
+                        }))}
+                        style={{ border: 'none', background: 'transparent', width: '40px', height: '40px', cursor: 'pointer' }}
+                      />
+                      <input
+                        type="text"
+                        value={portfolio.color_palette[c.field] || ''}
+                        onChange={(e) => setPortfolio(prev => ({
+                          ...prev,
+                          color_palette: {
+                            ...prev.color_palette,
+                            [c.field]: e.target.value
+                          }
+                        }))}
+                        style={{
+                          background: 'var(--bg-input)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--border-radius-md)',
+                          padding: '8px 12px',
+                          fontSize: '0.9rem',
+                          flex: 1
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'pages' && (
+            <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '1.2rem' }}>Choose Sections</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Select which pages are active in your portfolio site.</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+                {[
+                  { id: 'home', label: 'Home Banner' },
+                  { id: 'about', label: 'About & Skills' },
+                  { id: 'projects', label: 'Projects List' },
+                  { id: 'experience', label: 'Experience Chronology' },
+                  { id: 'contact', label: 'Contact Links' }
+                ].map(p => (
+                  <label
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 16px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--border-radius-md)',
+                      background: 'var(--bg-input)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={portfolio.enabled_pages.includes(p.id)}
+                      onChange={() => togglePage(p.id)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontWeight: '600', fontSize: '0.95rem' }}>{p.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'content' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {portfolio.enabled_pages.includes('home') && (
+                <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>Home Section</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Welcome Title</label>
+                    <input
+                      type="text"
+                      value={portfolio.page_content.home?.title || ''}
+                      onChange={(e) => updateField('home', 'title', e.target.value)}
+                      placeholder="Welcome to my site"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Subtitle Description</label>
+                    <input
+                      type="text"
+                      value={portfolio.page_content.home?.subtitle || ''}
+                      onChange={(e) => updateField('home', 'subtitle', e.target.value)}
+                      placeholder="Full-Stack Developer"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {portfolio.enabled_pages.includes('about') && (
+                <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>About Section</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Bio Description</label>
+                    <textarea
+                      value={portfolio.page_content.about?.bio || ''}
+                      onChange={(e) => updateField('about', 'bio', e.target.value)}
+                      rows={5}
+                      placeholder="Tell us about yourself..."
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '10px 12px', resize: 'vertical' }}
+                    />
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Skills List</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <input
+                        type="text"
+                        value={newSkill}
+                        onChange={(e) => setNewSkill(e.target.value)}
+                        placeholder="FastAPI"
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', flex: 1 }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
+                      />
+                      <button className="btn" onClick={handleAddSkill} style={{ padding: '8px 16px', background: 'var(--accent-blue)', color: '#fff', borderColor: 'transparent' }}>Add</button>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                      {(portfolio.page_content.about?.skills || []).map(skill => (
+                        <span 
+                          key={skill} 
+                          style={{ 
+                            background: 'var(--bg-input)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '20px', 
+                            padding: '4px 12px', 
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          {skill}
+                          <button onClick={() => handleRemoveSkill(skill)} style={{ border: 'none', background: 'transparent', color: 'var(--accent-rose)', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {portfolio.enabled_pages.includes('projects') && (
+                <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>Projects List</h3>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(portfolio.page_content.projects || []).map((p, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                        <div>
+                          <div style={{ fontWeight: '600' }}>{p.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{p.link || 'No URL'}</div>
+                        </div>
+                        <button className="btn" onClick={() => handleRemoveProject(idx)} style={{ padding: '2px 8px', fontSize: '0.8rem', color: 'var(--accent-rose)', borderColor: 'var(--accent-rose)', background: 'transparent' }}>
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Add Project</h4>
+                    <input
+                      type="text"
+                      placeholder="Project Name"
+                      value={newProject.title}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, title: e.target.value }))}
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Project Link"
+                      value={newProject.link}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, link: e.target.value }))}
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                    <textarea
+                      placeholder="Write short description..."
+                      value={newProject.description}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', resize: 'vertical' }}
+                    />
+                    <button className="btn" onClick={handleAddProject} style={{ background: 'var(--accent-blue)', color: '#fff', borderColor: 'transparent', alignSelf: 'flex-start', padding: '6px 16px' }}>
+                      Add Project
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {portfolio.enabled_pages.includes('experience') && (
+                <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>Experience Timeline</h3>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(portfolio.page_content.experience || []).map((e, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                        <div>
+                          <div style={{ fontWeight: '600' }}>{e.role} at {e.company}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{e.duration}</div>
+                        </div>
+                        <button className="btn" onClick={() => handleRemoveExperience(idx)} style={{ padding: '2px 8px', fontSize: '0.8rem', color: 'var(--accent-rose)', borderColor: 'var(--accent-rose)', background: 'transparent' }}>
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Add Career milestone</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <input
+                        type="text"
+                        placeholder="Role"
+                        value={newExperience.role}
+                        onChange={(e) => setNewExperience(prev => ({ ...prev, role: e.target.value }))}
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Company"
+                        value={newExperience.company}
+                        onChange={(e) => setNewExperience(prev => ({ ...prev, company: e.target.value }))}
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Duration (e.g. 2026 - Present)"
+                      value={newExperience.duration}
+                      onChange={(e) => setNewExperience(prev => ({ ...prev, duration: e.target.value }))}
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                    <textarea
+                      placeholder="Job description..."
+                      value={newExperience.description}
+                      onChange={(e) => setNewExperience(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', resize: 'vertical' }}
+                    />
+                    <button className="btn" onClick={handleAddExperience} style={{ background: 'var(--accent-blue)', color: '#fff', borderColor: 'transparent', alignSelf: 'flex-start', padding: '6px 16px' }}>
+                      Add Milestone
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {portfolio.enabled_pages.includes('contact') && (
+                <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>Contact Links</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Email</label>
+                    <input
+                      type="email"
+                      value={portfolio.page_content.contact?.email || ''}
+                      onChange={(e) => updateField('contact', 'email', e.target.value)}
+                      placeholder="email@example.com"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>LinkedIn Profile</label>
+                    <input
+                      type="text"
+                      value={portfolio.page_content.contact?.linkedin || ''}
+                      onChange={(e) => updateField('contact', 'linkedin', e.target.value)}
+                      placeholder="https://linkedin.com/in/username"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>GitHub Profile</label>
+                    <input
+                      type="text"
+                      value={portfolio.page_content.contact?.github || ''}
+                      onChange={(e) => updateField('contact', 'github', e.target.value)}
+                      placeholder="https://github.com/username"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {activeSubTab === 'launch' && (
+            <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '1.2rem' }}>Public URL Settings</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Unique URL Slug</label>
+                <input
+                  type="text"
+                  value={portfolio.username}
+                  onChange={(e) => setPortfolio(prev => ({ ...prev, username: e.target.value }))}
+                  placeholder="johndoe"
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', fontWeight: 'bold' }}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>This sets the link slug: {publicUrl}</span>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {activeSubTab !== 'launch' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Real-time Live Preview</span>
+            <div 
+              style={{ 
+                border: '1px solid var(--border-color)', 
+                borderRadius: 'var(--border-radius-lg)', 
+                overflow: 'hidden', 
+                background: '#ffffff', 
+                height: '520px', 
+                boxShadow: 'var(--glow-shadow)' 
+              }}
+            >
+              <iframe
+                title="Portfolio live preview"
+                srcDoc={generatePreviewHtml(portfolio)}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+            <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Full Desktop Preview</span>
+            <div 
+              style={{ 
+                border: '1px solid var(--border-color)', 
+                borderRadius: 'var(--border-radius-lg)', 
+                overflow: 'hidden', 
+                background: '#ffffff', 
+                height: '600px', 
+                boxShadow: 'var(--glow-shadow)',
+                width: '100%'
+              }}
+            >
+              <iframe
+                title="Portfolio live preview full"
+                srcDoc={generatePreviewHtml(portfolio)}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+const generatePreviewHtml = (p) => {
+  const primary = p.color_palette?.primary || '#3b82f6';
+  const secondary = p.color_palette?.secondary || '#1e3a8a';
+  const background = p.color_palette?.background || '#f8fafc';
+  const text = p.color_palette?.text || '#0f172a';
+  const templateId = p.template_id || 'modern';
+  
+  const enabled = p.enabled_pages || [];
+  const home = p.page_content?.home || {};
+  const about = p.page_content?.about || {};
+  const projects = p.page_content?.projects || [];
+  const experience = p.page_content?.experience || [];
+  const contact = p.page_content?.contact || {};
+  const username = p.username || 'user';
+
+  let fontStyles = '';
+  let bodyStyles = '';
+  let customCss = '';
+
+  if (templateId === 'minimal') {
+    fontStyles = `<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">`;
+    bodyStyles = `font-family: 'Plus Jakarta Sans', sans-serif; background-color: ${background}; color: ${text}; line-height: 1.7; padding: 0 20px;`;
+    customCss = `
+      header { max-width: 650px; margin: 0 auto; padding: 30px 0; border-bottom: 1px solid rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+      .logo { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.4rem; color: ${primary}; }
+      nav ul { display: flex; list-style: none; gap: 15px; }
+      nav ul a { color: ${text}; font-weight: 600; font-size: 0.95rem; text-decoration: none; }
+      section { max-width: 650px; margin: 0 auto; padding: 40px 0; border-bottom: 1px solid rgba(0,0,0,0.1); }
+      .hero-title { font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 700; color: ${primary}; margin-bottom: 15px; }
+      .section-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: ${primary}; margin-bottom: 20px; }
+      .skill-list { list-style: square; padding-left: 20px; margin-top: 10px; }
+      .project-item { margin-bottom: 25px; }
+      .project-header { display: flex; justify-content: space-between; font-family: 'Playfair Display', serif; font-weight: 700; }
+      .experience-item { margin-bottom: 25px; }
+      .experience-header { display: flex; justify-content: space-between; font-weight: 700; }
+    `;
+  } else if (templateId === 'creative') {
+    fontStyles = `<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">`;
+    bodyStyles = `font-family: 'Space Grotesk', sans-serif; background-color: ${background}; color: ${text}; line-height: 1.6;`;
+    customCss = `
+      header { padding: 20px; display: flex; justify-content: space-between; align-items: center; max-width: 800px; margin: 0 auto; border-bottom: 2px dashed rgba(255,255,255,0.1); }
+      .logo { font-weight: 700; font-size: 1.3rem; background: linear-gradient(135deg, ${primary}, ${secondary}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      nav ul { display: flex; list-style: none; gap: 15px; }
+      nav ul a { color: ${text}; text-decoration: none; font-weight: 600; font-size: 0.85rem; }
+      section { max-width: 800px; margin: 0 auto; padding: 50px 20px; }
+      .hero-title { font-size: 2.8rem; font-weight: 700; background: linear-gradient(135deg, ${primary}, ${secondary}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 15px; }
+      .section-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 30px; display: flex; align-items: center; gap: 10px; }
+      .section-title::after { content: ''; flex: 1; height: 2px; background: linear-gradient(90deg, ${primary}, transparent); }
+      .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 20px; }
+      .skill-chip { display: inline-block; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 4px; margin: 4px; font-size: 0.85rem; }
+      .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+      .project-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 15px; background: rgba(255,255,255,0.03); }
+      .experience-card { border-left: 3px solid ${primary}; padding-left: 15px; margin-bottom: 20px; }
+    `;
+  } else { // modern (default)
+    fontStyles = `<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">`;
+    bodyStyles = `font-family: 'Outfit', sans-serif; background-color: ${background}; color: ${text}; line-height: 1.6; padding-bottom: 40px;`;
+    customCss = `
+      header { position: sticky; top: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(0,0,0,0.08); }
+      .nav-container { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+      .logo { font-weight: 800; font-size: 1.3rem; color: ${primary}; }
+      nav ul { display: flex; list-style: none; gap: 15px; }
+      nav ul a { color: ${text}; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+      section { max-width: 800px; margin: 0 auto; padding: 50px 20px; }
+      .hero-section { text-align: center; padding: 80px 20px; }
+      .hero-title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, ${primary}, ${secondary}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+      .hero-subtitle { font-size: 1.2rem; font-weight: 300; opacity: 0.8; margin-bottom: 20px; }
+      .btn { display: inline-block; background: ${primary}; color: #fff; padding: 10px 24px; border-radius: 20px; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+      .section-title { font-size: 1.8rem; font-weight: 800; margin-bottom: 25px; position: relative; padding-bottom: 8px; }
+      .section-title::after { content: ''; position: absolute; left: 0; bottom: 0; width: 40px; height: 3px; background: ${primary}; }
+      .card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+      .skill-tag { display: inline-block; background: rgba(0,0,0,0.04); padding: 4px 10px; border-radius: 12px; margin: 4px; font-size: 0.85rem; font-weight: 600; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+      .experience-item { border-left: 2px solid ${primary}; padding-left: 15px; margin-bottom: 20px; }
+    `;
+  }
+
+  let sectionsHtml = '';
+  
+  if (enabled.includes('home')) {
+    sectionsHtml += `
+      <section id="home" class="hero-section">
+        <h1 class="hero-title">${home.title || 'Welcome'}</h1>
+        <p class="hero-subtitle">${home.subtitle || ''}</p>
+        ${enabled.includes('contact') ? `<a href="#contact" class="btn">Get In Touch</a>` : ''}
+      </section>
+    `;
+  }
+
+  if (enabled.includes('about')) {
+    const skillsHtml = (about.skills || []).map(s => `<span class="${templateId === 'creative' ? 'skill-chip' : 'skill-tag'}">${s}</span>`).join('');
+    sectionsHtml += `
+      <section id="about">
+        <h2 class="section-title">About Me</h2>
+        <div class="card">
+          <p>${about.bio || 'No bio compiled yet.'}</p>
+          ${skillsHtml ? `<h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 1rem; font-weight: 600;">Skills</h3><div style="margin-top: 10px;">${skillsHtml}</div>` : ''}
+        </div>
+      </section>
+    `;
+  }
+
+  if (enabled.includes('projects')) {
+    const projsHtml = projects.map(p => `
+      <div class="${templateId === 'minimal' ? 'project-item' : 'card project-card'}">
+        <div class="project-header">
+          <span class="project-title" style="font-weight: 700;">${p.title || 'Unnamed Project'}</span>
+          ${p.link ? `<a href="${p.link}" target="_blank" class="project-link">Link &rarr;</a>` : ''}
+        </div>
+        <p style="margin-top: 8px; opacity: 0.8; font-size: 0.9rem;">${p.description || ''}</p>
+      </div>
+    `).join('');
+    sectionsHtml += `
+      <section id="projects">
+        <h2 class="section-title">Projects</h2>
+        <div class="${templateId === 'minimal' ? '' : 'grid'}">
+          ${projsHtml || '<p>No projects listed yet.</p>'}
+        </div>
+      </section>
+    `;
+  }
+
+  if (enabled.includes('experience')) {
+    const expHtml = experience.map(e => `
+      <div class="${templateId === 'minimal' ? 'experience-item' : 'experience-card'}" style="margin-bottom: 20px;">
+        <div class="experience-header" style="display: flex; justify-content: space-between;">
+          <span style="font-weight: 700;">${e.role} at <span style="color: ${primary};">${e.company}</span></span>
+          <span style="font-size: 0.85rem; opacity: 0.75;">${e.duration}</span>
+        </div>
+        <p style="margin-top: 6px; opacity: 0.8; font-size: 0.9rem;">${e.description}</p>
+      </div>
+    `).join('');
+    sectionsHtml += `
+      <section id="experience">
+        <h2 class="section-title">Experience</h2>
+        <div>
+          ${expHtml || '<p>No experience history added.</p>'}
+        </div>
+      </section>
+    `;
+  }
+
+  if (enabled.includes('contact')) {
+    sectionsHtml += `
+      <section id="contact" style="border-bottom: none;">
+        <h2 class="section-title">Contact</h2>
+        <p>Connect with me:</p>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px; max-width: 350px;">
+          ${contact.email ? `<div class="card" style="padding: 10px 15px;">✉️ ${contact.email}</div>` : ''}
+          ${contact.linkedin ? `<div class="card" style="padding: 10px 15px;">🔗 <a href="${contact.linkedin}" target="_blank">LinkedIn Profile</a></div>` : ''}
+          ${contact.github ? `<div class="card" style="padding: 10px 15px;">💻 <a href="${contact.github}" target="_blank">GitHub Profile</a></div>` : ''}
+        </div>
+      </section>
+    `;
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>${home.title || 'Portfolio'}</title>
+      ${fontStyles}
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { ${bodyStyles} }
+        a { color: ${primary}; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        ${customCss}
+      </style>
+    </head>
+    <body>
+      <header>
+        <div class="nav-container" style="display: flex; justify-content: space-between; max-width: 800px; margin: 0 auto; padding: 15px 20px; align-items: center;">
+          <div class="logo">${username.toUpperCase()}</div>
+          <nav>
+            <ul style="display: flex; list-style: none; gap: 15px;">
+              ${enabled.map(page => `<li><a href="#${page}">${page.toUpperCase()}</a></li>`).join('')}
+            </ul>
+          </nav>
+        </div>
+      </header>
+      ${sectionsHtml}
+      <footer style="text-align: center; padding: 30px; font-size: 0.8rem; opacity: 0.6; border-top: 1px solid rgba(0,0,0,0.06); max-width: 800px; margin: 0 auto;">
+        &copy; 2026 ${username.toUpperCase()}. Built with Academy Portfolios.
+      </footer>
+    </body>
+    </html>
+  `;
+};
+
+function GeoAttendancePanel({ user }) {
+  const [tab, setTab] = React.useState(user.role === 'student' ? 'mark' : 'records');
+  const [centers, setCenters] = React.useState([]);
+  const [studentCenter, setStudentCenter] = React.useState(null);
+  const [students, setStudents] = React.useState([]);
+  const [records, setRecords] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState('');
+
+  // Form states
+  const [newCenter, setNewCenter] = React.useState({ name: '', latitude: '', longitude: '', radius_meters: 150, open_time: '09:30', close_time: '17:30', late_time: '11:00' });
+  const [editingCenter, setEditingCenter] = React.useState(null);
+  const [assignPayload, setAssignPayload] = React.useState({ user_id: '', center_id: '' });
+  const [correctPayload, setCorrectPayload] = React.useState({ record_id: '', status: 'PRESENT', reason: '' });
+  const [showCorrectModal, setShowCorrectModal] = React.useState(false);
+  const [selectedUserIds, setSelectedUserIds] = React.useState([]);
+
+  // Filter states
+  const [filterDate, setFilterDate] = React.useState(new Date().toISOString().split('T')[0]);
+  const [filterCenterId, setFilterCenterId] = React.useState('');
+  const [filterBatchId, setFilterBatchId] = React.useState('');
+
+  // Geolocation states for student
+  const [userCoords, setUserCoords] = React.useState(null);
+  const [gpsAccuracy, setGpsAccuracy] = React.useState(null);
+  const [calculatedDistance, setCalculatedDistance] = React.useState(null);
+  const [fetchingLocation, setFetchingLocation] = React.useState(false);
+  const [marking, setMarking] = React.useState(false);
+  const [hasMarkedToday, setHasMarkedToday] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user.role === 'student') {
+      fetchStudentCenter();
+      fetchStudentHistory();
+    } else {
+      fetchCenters();
+      fetchRecords();
+      if (['head', 'associate'].includes(user.role)) {
+        fetchStudents();
+      }
+    }
+  }, [tab, filterDate, filterCenterId, filterBatchId]);
+
+  const fetchCenters = async () => {
+    try {
+      setLoading(true);
+      const list = await api.geoAttendance.getCenters();
+      setCenters(list);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch centers.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudentCenter = async () => {
+    try {
+      setLoading(true);
+      const center = await api.geoAttendance.getStudentCenter();
+      setStudentCenter(center);
+    } catch (err) {
+      // 404 is expected if not assigned
+      setStudentCenter(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      // Associate lists students for their center (unassigned or assigned)
+      const targetCenter = user.role === 'associate' ? user.center_id : filterCenterId;
+      const list = await api.geoAttendance.getStudents(targetCenter);
+      setStudents(list);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch students.');
+    }
+  };
+
+  const fetchRecords = async () => {
+    try {
+      setLoading(true);
+      const centerFilter = user.role === 'associate' ? user.center_id : filterCenterId;
+      const list = await api.geoAttendance.getRecords(filterDate, centerFilter, filterBatchId);
+      setRecords(list);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch logs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudentHistory = async () => {
+    try {
+      setLoading(true);
+      const list = await api.geoAttendance.getHistory();
+      setRecords(list);
+      
+      // Check if student checked in today
+      const todayStr = new Date().toISOString().split('T')[0];
+      const markedToday = list.some(r => r.date === todayStr);
+      setHasMarkedToday(markedToday);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch history.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateCenter = async (e) => {
+    e.preventDefault();
+    try {
+      setError('');
+      setSuccess('');
+      await api.geoAttendance.createCenter(newCenter);
+      setSuccess('Physical center configured successfully!');
+      setNewCenter({ name: '', latitude: '', longitude: '', radius_meters: 150, open_time: '09:30', close_time: '17:30', late_time: '11:00' });
+      fetchCenters();
+    } catch (err) {
+      setError(err.message || 'Failed to create center.');
+    }
+  };
+
+  const handleUpdateCenter = async (e) => {
+    e.preventDefault();
+    if (!editingCenter) return;
+    try {
+      setError('');
+      setSuccess('');
+      await api.geoAttendance.updateCenter(editingCenter.id, editingCenter);
+      setSuccess('Center updated successfully.');
+      setEditingCenter(null);
+      fetchCenters();
+    } catch (err) {
+      setError(err.message || 'Failed to update center.');
+    }
+  };
+
+  const handleDeleteCenter = async (centerId) => {
+    if (!window.confirm('Are you sure you want to delete this training center and clear all user mappings?')) return;
+    try {
+      setError('');
+      setSuccess('');
+      await api.geoAttendance.deleteCenter(centerId);
+      setSuccess('Center deleted successfully.');
+      fetchCenters();
+    } catch (err) {
+      setError(err.message || 'Failed to delete center.');
+    }
+  };
+
+  const handleAssignCenter = async (e) => {
+    e.preventDefault();
+    try {
+      setError('');
+      setSuccess('');
+      const targetCenter = user.role === 'associate' ? user.center_id : assignPayload.center_id;
+      
+      if (selectedUserIds.length > 0) {
+        await api.geoAttendance.assignCenterBulk({
+          user_ids: selectedUserIds,
+          center_id: targetCenter || null
+        });
+        setSuccess(`Successfully mapped ${selectedUserIds.length} users to training center!`);
+        setSelectedUserIds([]);
+      } else {
+        await api.geoAttendance.assignCenter({
+          user_id: assignPayload.user_id,
+          center_id: targetCenter || null
+        });
+        setSuccess('Student mapped to training center successfully!');
+      }
+      
+      setAssignPayload({ user_id: '', center_id: '' });
+      fetchStudents();
+    } catch (err) {
+      setError(err.message || 'Failed to assign center.');
+    }
+  };
+
+  const handleCorrectRecord = async (e) => {
+    e.preventDefault();
+    try {
+      setError('');
+      setSuccess('');
+      await api.geoAttendance.correctRecord(correctPayload.record_id, {
+        status: correctPayload.status,
+        reason: correctPayload.reason
+      });
+      setSuccess('Attendance log updated with manual audit trail.');
+      setShowCorrectModal(false);
+      setCorrectPayload({ record_id: '', status: 'PRESENT', reason: '' });
+      fetchRecords();
+    } catch (err) {
+      setError(err.message || 'Failed to correct record.');
+    }
+  };
+
+  // Haversine Distance computation helper in JS
+  const calculateDistanceJS = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000; // meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setFetchingLocation(true);
+    setError('');
+    setSuccess('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        setUserCoords({ latitude, longitude });
+        setGpsAccuracy(accuracy);
+        setFetchingLocation(false);
+        
+        if (studentCenter) {
+          const dist = calculateDistanceJS(
+            latitude, longitude,
+            studentCenter.latitude, studentCenter.longitude
+          );
+          setCalculatedDistance(dist);
+        }
+      },
+      (err) => {
+        setError(`Failed to retrieve your location: ${err.message}. Please verify device location permissions are enabled.`);
+        setFetchingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const submitAttendance = async () => {
+    if (!userCoords) return;
+    try {
+      setMarking(true);
+      setError('');
+      setSuccess('');
+      await api.geoAttendance.markAttendance({
+        latitude: userCoords.latitude,
+        longitude: userCoords.longitude,
+        gps_accuracy: gpsAccuracy
+      });
+      setSuccess('Your attendance has been marked successfully!');
+      fetchStudentHistory();
+    } catch (err) {
+      setError(err.message || 'Failed to mark attendance.');
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '20px 0' }}>
+      <div>
+        <h2 className="title-gradient" style={{ fontSize: '1.8rem', fontWeight: '800' }}>Geo-Fenced Attendance</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
+          Real-time GPS boundary verification for centers. Attendance open 9:30 AM to 5:30 PM.
+        </p>
+      </div>
+
+      {error && <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid var(--accent-rose)', color: 'var(--accent-rose)', padding: '12px 16px', borderRadius: 'var(--border-radius-md)' }}>{error}</div>}
+      {success && <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-emerald)', color: 'var(--accent-emerald)', padding: '12px 16px', borderRadius: 'var(--border-radius-md)' }}>{success}</div>}
+
+      {/* Tabs Row */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        {user.role === 'student' && (
+          <button 
+            onClick={() => setTab('mark')}
+            style={{
+              padding: '8px 16px',
+              background: tab === 'mark' ? 'var(--bg-card)' : 'transparent',
+              border: '1px solid',
+              borderColor: tab === 'mark' ? 'var(--border-color-hover)' : 'transparent',
+              borderRadius: 'var(--border-radius-md)',
+              color: tab === 'mark' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            Mark Check-In
+          </button>
+        )}
+        {['head', 'associate', 'trainer'].includes(user.role) && (
+          <button 
+            onClick={() => setTab('records')}
+            style={{
+              padding: '8px 16px',
+              background: tab === 'records' ? 'var(--bg-card)' : 'transparent',
+              border: '1px solid',
+              borderColor: tab === 'records' ? 'var(--border-color-hover)' : 'transparent',
+              borderRadius: 'var(--border-radius-md)',
+              color: tab === 'records' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            Attendance Logs
+          </button>
+        )}
+        {['head', 'associate'].includes(user.role) && (
+          <button 
+            onClick={() => setTab('assignments')}
+            style={{
+              padding: '8px 16px',
+              background: tab === 'assignments' ? 'var(--bg-card)' : 'transparent',
+              border: '1px solid',
+              borderColor: tab === 'assignments' ? 'var(--border-color-hover)' : 'transparent',
+              borderRadius: 'var(--border-radius-md)',
+              color: tab === 'assignments' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            Student Mappings
+          </button>
+        )}
+        {user.role === 'head' && (
+          <button 
+            onClick={() => setTab('centers')}
+            style={{
+              padding: '8px 16px',
+              background: tab === 'centers' ? 'var(--bg-card)' : 'transparent',
+              border: '1px solid',
+              borderColor: tab === 'centers' ? 'var(--border-color-hover)' : 'transparent',
+              borderRadius: 'var(--border-radius-md)',
+              color: tab === 'centers' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            Manage Centers
+          </button>
+        )}
+      </div>
+
+      {/* 1. Student Mark Attendance View */}
+      {tab === 'mark' && user.role === 'student' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px' }}>
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Center Boundary Check</h3>
+            
+            {!studentCenter ? (
+              <div style={{ padding: '20px', border: '1px dashed var(--accent-rose)', borderRadius: 'var(--border-radius-md)', background: 'rgba(244,63,94,0.02)', textAlign: 'center' }}>
+                <p style={{ color: 'var(--accent-rose)', fontWeight: '600' }}>No physical center has been assigned to your account.</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px' }}>Please contact your Area Head or coordinator to configure your center details.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '16px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>{studentCenter.name}</div>
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <div>Latitude: <strong>{studentCenter.latitude}</strong></div>
+                    <div>Longitude: <strong>{studentCenter.longitude}</strong></div>
+                    <div>Radius: <strong>{studentCenter.radius_meters}m</strong></div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    className="btn" 
+                    onClick={requestLocation} 
+                    disabled={fetchingLocation || hasMarkedToday}
+                    style={{ background: 'var(--accent-indigo)', borderColor: 'transparent', color: '#ffffff', padding: '10px 20px' }}
+                  >
+                    {fetchingLocation ? 'Locating...' : 'Get Current Location'}
+                  </button>
+                  
+                  <button
+                    className="btn"
+                    onClick={submitAttendance}
+                    disabled={marking || !userCoords || (calculatedDistance !== null && calculatedDistance > studentCenter.radius_meters) || hasMarkedToday}
+                    style={{
+                      background: !userCoords || (calculatedDistance !== null && calculatedDistance > studentCenter.radius_meters) || hasMarkedToday ? 'transparent' : 'var(--accent-emerald)',
+                      borderColor: !userCoords || (calculatedDistance !== null && calculatedDistance > studentCenter.radius_meters) || hasMarkedToday ? 'var(--border-color)' : 'transparent',
+                      color: !userCoords || (calculatedDistance !== null && calculatedDistance > studentCenter.radius_meters) || hasMarkedToday ? 'var(--text-muted)' : '#ffffff',
+                      padding: '10px 20px'
+                    }}
+                  >
+                    {marking ? 'Marking...' : 'Mark Attendance'}
+                  </button>
+                </div>
+
+                {userCoords && (
+                  <div className="glass-card" style={{ marginTop: '10px', borderColor: calculatedDistance <= studentCenter.radius_meters ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                    <div style={{ fontWeight: '700', marginBottom: '10px' }}>Your Geolocation Status:</div>
+                    <ul style={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '6px', listStyle: 'none' }}>
+                      <li>Latitude: <strong>{userCoords.latitude}</strong></li>
+                      <li>Longitude: <strong>{userCoords.longitude}</strong></li>
+                      <li>GPS Accuracy: <strong>{gpsAccuracy ? `${Math.round(gpsAccuracy)} meters` : 'N/A'}</strong></li>
+                      <li>Distance from Center: <strong>{calculatedDistance !== null ? `${Math.round(calculatedDistance)} meters` : 'Calculating...'}</strong></li>
+                    </ul>
+
+                    {calculatedDistance !== null && (
+                      <div style={{ marginTop: '15px', padding: '12px', borderRadius: 'var(--border-radius-md)', fontWeight: '600', fontSize: '0.9rem',
+                        background: calculatedDistance <= studentCenter.radius_meters ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)',
+                        color: calculatedDistance <= studentCenter.radius_meters ? 'var(--accent-emerald)' : 'var(--accent-rose)'
+                      }}>
+                        {calculatedDistance <= studentCenter.radius_meters 
+                          ? '✓ You are within the attendance area. Mark Attendance button enabled.' 
+                          : '✗ You are outside the attendance area. Please move within 150 meters of your center.'
+                        }
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {hasMarkedToday && (
+                  <div style={{ padding: '12px', border: '1px solid var(--accent-emerald)', borderRadius: 'var(--border-radius-md)', background: 'rgba(16,185,129,0.02)', color: 'var(--accent-emerald)', fontWeight: '600', textAlign: 'center' }}>
+                    ✓ You have checked in for today!
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>My Check-In History</h3>
+            
+            <div style={{ overflowY: 'auto', maxHeight: '400px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {records.length === 0 ? (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>No attendance history logs found.</div>
+              ) : (
+                records.map(r => (
+                  <div key={r.id} style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="flex-between">
+                      <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>{r.date}</span>
+                      <span style={{ 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 'bold',
+                        background: r.status === 'PRESENT' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                        color: r.status === 'PRESENT' ? 'var(--accent-emerald)' : 'var(--accent-amber)'
+                      }}>{r.status}</span>
+                    </div>
+                    <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Marked: <strong>{new Date(r.marked_at).toLocaleTimeString()}</strong></span>
+                      <span>Distance: <strong>{Math.round(r.distance)}m</strong></span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Attendance Logs View (Trainer/Associate/Head) */}
+      {tab === 'records' && ['head', 'associate', 'trainer'].includes(user.role) && (
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Select Date</label>
+              <input 
+                type="date" 
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+              />
+            </div>
+            
+            {user.role === 'head' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Filter Center</label>
+                <select 
+                  value={filterCenterId}
+                  onChange={(e) => setFilterCenterId(e.target.value)}
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', minWidth: '150px' }}
+                >
+                  <option value="">All Centers</option>
+                  {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Batch Slug / ID</label>
+              <input 
+                type="text" 
+                placeholder="All Batches"
+                value={filterBatchId}
+                onChange={(e) => setFilterBatchId(e.target.value)}
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+              />
+            </div>
+            
+            <button className="btn" onClick={fetchRecords} style={{ alignSelf: 'flex-end', padding: '8px 16px', background: 'transparent', borderColor: 'var(--border-color-hover)' }}>Refresh</button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                  <th style={{ padding: '12px' }}>Student</th>
+                  <th style={{ padding: '12px' }}>Center</th>
+                  <th style={{ padding: '12px' }}>Batch</th>
+                  <th style={{ padding: '12px' }}>Marked Time (IST)</th>
+                  <th style={{ padding: '12px' }}>Distance</th>
+                  <th style={{ padding: '12px' }}>Status</th>
+                  <th style={{ padding: '12px' }}>Verification</th>
+                  {['head', 'associate'].includes(user.role) && <th style={{ padding: '12px' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {records.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No attendance records found for this date.</td>
+                  </tr>
+                ) : (
+                  records.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                      <td style={{ padding: '12px' }}>
+                        <div>{r.student_name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{r.student_email}</div>
+                      </td>
+                      <td style={{ padding: '12px' }}>{r.center_name}</td>
+                      <td style={{ padding: '12px' }}>{r.batch_id || 'N/A'}</td>
+                      <td style={{ padding: '12px' }}>{new Date(r.marked_at).toLocaleTimeString()}</td>
+                      <td style={{ padding: '12px' }}>{Math.round(r.distance)}m</td>
+                      <td style={{ padding: '12px' }}>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          background: r.status === 'PRESENT' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                          color: r.status === 'PRESENT' ? 'var(--accent-emerald)' : 'var(--accent-amber)'
+                        }}>{r.status}</span>
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <span style={{ fontSize: '0.8rem', color: r.verification_status === 'verified' ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }}>
+                          {r.verification_status === 'verified' ? 'GPS Checked' : 'Manually Adjusted'}
+                        </span>
+                      </td>
+                      {['head', 'associate'].includes(user.role) && (
+                        <td style={{ padding: '12px' }}>
+                          <button 
+                            className="btn" 
+                            style={{ padding: '4px 8px', fontSize: '0.75rem', background: 'transparent', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)' }}
+                            onClick={() => {
+                              setCorrectPayload({ record_id: r.id, status: r.status, reason: '' });
+                              setShowCorrectModal(true);
+                            }}
+                          >
+                            Correct Log
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Student Center Assignments View */}
+      {tab === 'assignments' && ['head', 'associate'].includes(user.role) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px' }}>
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Student Assignments</h3>
+            
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              {user.role === 'head' && (
+                <select 
+                  value={filterCenterId}
+                  onChange={(e) => setFilterCenterId(e.target.value)}
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', flex: 1 }}
+                >
+                  <option value="">All Centers</option>
+                  {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              <button className="btn" onClick={fetchStudents} style={{ padding: '8px 16px' }}>Filter</button>
+            </div>
+
+            <div style={{ overflowY: 'auto', maxHeight: '450px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                    <th style={{ padding: '8px', width: '40px', textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={students.length > 0 && students.every(s => selectedUserIds.includes(s.id))}
+                        onChange={() => {
+                          const visibleIds = students.map(s => s.id);
+                          const isAllSelected = visibleIds.every(id => selectedUserIds.includes(id));
+                          if (isAllSelected) {
+                            setSelectedUserIds(prev => prev.filter(id => !visibleIds.includes(id)));
+                          } else {
+                            setSelectedUserIds(prev => {
+                              const next = [...prev];
+                              visibleIds.forEach(id => {
+                                if (!next.includes(id)) next.push(id);
+                              });
+                              return next;
+                            });
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </th>
+                    <th style={{ padding: '8px' }}>User Details</th>
+                    <th style={{ padding: '8px' }}>Role</th>
+                    <th style={{ padding: '8px' }}>Current Center ID</th>
+                    <th style={{ padding: '8px' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '20px', textAlign: 'center' }}>No users found.</td>
+                    </tr>
+                  ) : (
+                    students.map(s => (
+                      <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.01)', background: selectedUserIds.includes(s.id) ? 'rgba(34,197,94,0.02)' : 'transparent' }}>
+                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedUserIds.includes(s.id)}
+                            onChange={() => {
+                              setSelectedUserIds(prev => 
+                                prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                              );
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </td>
+                        <td style={{ padding: '8px' }}>
+                          <div><strong>{s.name}</strong></div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{s.email}</div>
+                        </td>
+                        <td style={{ padding: '8px', textTransform: 'capitalize' }}>{s.role}</td>
+                        <td style={{ padding: '8px' }}>{s.center_id ? centers.find(c => c.id === s.center_id)?.name || s.center_id : <span style={{ color: 'var(--accent-rose)' }}>Unmapped</span>}</td>
+                        <td style={{ padding: '8px' }}>
+                          <button 
+                            className="btn"
+                            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                            onClick={() => {
+                              setAssignPayload({ user_id: s.id, center_id: s.center_id || '' });
+                              setSelectedUserIds([]); // clear bulk selection if single select clicked
+                            }}
+                          >
+                            Select
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: 'fit-content' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Configure Mapping</h3>
+            
+            <form onSubmit={handleAssignCenter} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {selectedUserIds.length > 0 ? 'Selected Users (Bulk Assign)' : 'Selected User ID'}
+                </label>
+                {selectedUserIds.length > 0 ? (
+                  <div style={{ 
+                    background: 'rgba(16,185,129,0.05)', 
+                    border: '1px dashed var(--accent-emerald)', 
+                    color: 'var(--accent-emerald)', 
+                    borderRadius: 'var(--border-radius-md)', 
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>{selectedUserIds.length} users selected</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setSelectedUserIds([])}
+                      style={{ 
+                        background: 'transparent', 
+                        border: 'none', 
+                        color: 'var(--accent-rose)', 
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                ) : (
+                  <input 
+                    type="text" 
+                    value={assignPayload.user_id}
+                    onChange={(e) => setAssignPayload(prev => ({ ...prev, user_id: e.target.value }))}
+                    required 
+                    placeholder="Paste User Object ID"
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                  />
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Assign Center</label>
+                {user.role === 'associate' ? (
+                  <input 
+                    type="text" 
+                    value={centers.find(c => c.id === user.center_id)?.name || 'My Associate Center'} 
+                    disabled 
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', opacity: 0.7 }}
+                  />
+                ) : (
+                  <select 
+                    value={assignPayload.center_id}
+                    onChange={(e) => setAssignPayload(prev => ({ ...prev, center_id: e.target.value }))}
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                  >
+                    <option value="">-- Remove center mapping --</option>
+                    {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                )}
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn" 
+                disabled={!assignPayload.user_id && selectedUserIds.length === 0}
+                style={{ background: 'var(--accent-blue)', color: '#fff', borderColor: 'transparent', alignSelf: 'flex-start', padding: '8px 20px' }}
+              >
+                Save Assignment
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Center Geofences configuration (Head Admin Only) */}
+      {tab === 'centers' && user.role === 'head' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px' }}>
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Physical Centers</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {centers.length === 0 ? (
+                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>No training centers configured yet.</div>
+              ) : (
+                centers.map(c => (
+                  <div key={c.id} style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="flex-between">
+                      <strong style={{ fontSize: '1.05rem', color: 'var(--accent-cyan)' }}>{c.name}</strong>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => setEditingCenter(c)}>Edit</button>
+                        <button className="btn btn-danger" style={{ padding: '2px 8px', fontSize: '0.75rem', background: 'var(--accent-rose)', color: '#fff', borderColor: 'transparent' }} onClick={() => handleDeleteCenter(c.id)}>Delete</button>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '10px', display: 'flex', gap: '15px', fontSize: '0.85rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                      <span>Lat: <strong>{c.latitude}</strong></span>
+                      <span>Lon: <strong>{c.longitude}</strong></span>
+                      <span>Boundary: <strong>{c.radius_meters}m</strong></span>
+                      <span>Open: <strong>{c.open_time || '09:30'}</strong></span>
+                      <span>Close: <strong>{c.close_time || '17:30'}</strong></span>
+                      <span>Late: <strong>{c.late_time || '11:00'}</strong></span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: 'fit-content' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>
+              {editingCenter ? 'Edit Training Center' : 'Create New Center'}
+            </h3>
+            
+            {editingCenter ? (
+              <form onSubmit={handleUpdateCenter} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem' }}>Center Name</label>
+                  <input 
+                    type="text" 
+                    value={editingCenter.name}
+                    onChange={(e) => setEditingCenter(prev => ({ ...prev, name: e.target.value }))}
+                    required 
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Latitude</label>
+                    <input 
+                      type="number" 
+                      step="0.000001"
+                      value={editingCenter.latitude}
+                      onChange={(e) => setEditingCenter(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Longitude</label>
+                    <input 
+                      type="number" 
+                      step="0.000001"
+                      value={editingCenter.longitude}
+                      onChange={(e) => setEditingCenter(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem' }}>Radius (Meters)</label>
+                  <input 
+                    type="number" 
+                    value={editingCenter.radius_meters}
+                    onChange={(e) => setEditingCenter(prev => ({ ...prev, radius_meters: parseFloat(e.target.value) || 150 }))}
+                    required 
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Open Time</label>
+                    <input 
+                      type="time" 
+                      value={editingCenter.open_time || '09:30'}
+                      onChange={(e) => setEditingCenter(prev => ({ ...prev, open_time: e.target.value }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Close Time</label>
+                    <input 
+                      type="time" 
+                      value={editingCenter.close_time || '17:30'}
+                      onChange={(e) => setEditingCenter(prev => ({ ...prev, close_time: e.target.value }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Late Time</label>
+                    <input 
+                      type="time" 
+                      value={editingCenter.late_time || '11:00'}
+                      onChange={(e) => setEditingCenter(prev => ({ ...prev, late_time: e.target.value }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="submit" className="btn" style={{ background: 'var(--accent-emerald)', color: '#fff', borderColor: 'transparent', padding: '8px 20px' }}>Save Changes</button>
+                  <button type="button" className="btn btn-secondary" style={{ padding: '8px 20px' }} onClick={() => setEditingCenter(null)}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleCreateCenter} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem' }}>Center Name</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Hyderabad Center"
+                    value={newCenter.name}
+                    onChange={(e) => setNewCenter(prev => ({ ...prev, name: e.target.value }))}
+                    required 
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Latitude</label>
+                    <input 
+                      type="number" 
+                      step="0.000001"
+                      placeholder="17.448"
+                      value={newCenter.latitude}
+                      onChange={(e) => setNewCenter(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Longitude</label>
+                    <input 
+                      type="number" 
+                      step="0.000001"
+                      placeholder="78.374"
+                      value={newCenter.longitude}
+                      onChange={(e) => setNewCenter(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem' }}>Geofence Radius (Meters)</label>
+                  <input 
+                    type="number" 
+                    value={newCenter.radius_meters}
+                    onChange={(e) => setNewCenter(prev => ({ ...prev, radius_meters: parseFloat(e.target.value) || 150 }))}
+                    required 
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Open Time</label>
+                    <input 
+                      type="time" 
+                      value={newCenter.open_time}
+                      onChange={(e) => setNewCenter(prev => ({ ...prev, open_time: e.target.value }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Close Time</label>
+                    <input 
+                      type="time" 
+                      value={newCenter.close_time}
+                      onChange={(e) => setNewCenter(prev => ({ ...prev, close_time: e.target.value }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.85rem' }}>Late Time</label>
+                    <input 
+                      type="time" 
+                      value={newCenter.late_time}
+                      onChange={(e) => setNewCenter(prev => ({ ...prev, late_time: e.target.value }))}
+                      required 
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="btn" style={{ background: 'var(--accent-blue)', color: '#fff', borderColor: 'transparent', alignSelf: 'flex-start', padding: '8px 20px' }}>
+                  Create Center
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Manual correction Modal */}
+      {showCorrectModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-card" style={{ width: '400px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Manual Attendance Adjustment</h3>
+            
+            <form onSubmit={handleCorrectRecord} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Status</label>
+                <select 
+                  value={correctPayload.status}
+                  onChange={(e) => setCorrectPayload(prev => ({ ...prev, status: e.target.value }))}
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px' }}
+                >
+                  <option value="PRESENT">PRESENT</option>
+                  <option value="LATE">LATE</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Correction Reason (Mandatory Audit Note)</label>
+                <textarea 
+                  value={correctPayload.reason}
+                  onChange={(e) => setCorrectPayload(prev => ({ ...prev, reason: e.target.value }))}
+                  required 
+                  minLength={5}
+                  rows={4}
+                  placeholder="Explain why this manual adjustment is being saved..."
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)', padding: '8px 12px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCorrectModal(false)}>Cancel</button>
+                <button type="submit" className="btn" style={{ background: 'var(--accent-blue)', color: '#fff', borderColor: 'transparent' }} disabled={correctPayload.reason.length < 5}>Apply Correction</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default App;
+
 
 

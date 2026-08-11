@@ -24,6 +24,9 @@ from app.modules.ai_features.router import router as ai_features_router
 from app.modules.digital_library.router import router as digital_library_router
 from app.modules.personal_space.router import router as personal_space_router
 from app.modules.placements.router import router as placements_router
+from app.modules.portfolios.router import router as portfolios_router
+from app.modules.geo_attendance.router import router as geo_attendance_router
+
 
 
 # Import Background worker
@@ -98,7 +101,10 @@ app.include_router(ai_features_router, prefix=settings.API_V1_STR)
 app.include_router(digital_library_router, prefix=settings.API_V1_STR)
 app.include_router(personal_space_router, prefix=settings.API_V1_STR)
 app.include_router(placements_router, prefix=settings.API_V1_STR)
+app.include_router(portfolios_router)
+app.include_router(geo_attendance_router, prefix=settings.API_V1_STR)
 app.include_router(test_router, prefix=settings.API_V1_STR)
+
 
 
 # Ensure uploads directories exist

@@ -854,5 +854,131 @@ export const api = {
       });
       return handleResponse(response);
     }
+  },
+  portfolios: {
+    get: async () => {
+      const response = await fetch(`${BASE_URL}/portfolios/my`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    save: async (data) => {
+      const response = await fetch(`${BASE_URL}/portfolios/save`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(data),
+      });
+      return handleResponse(response);
+    },
+    deploy: async (isDeployed) => {
+      const response = await fetch(`${BASE_URL}/portfolios/deploy?is_deployed=${isDeployed}`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    export: async () => {
+      const response = await fetch(`${BASE_URL}/portfolios/export`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      if (!response.ok) throw new Error('Failed to export portfolio');
+      return response.blob();
+    }
+  },
+  geoAttendance: {
+    getCenters: async () => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/centers`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    createCenter: async (centerData) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/centers`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(centerData),
+      });
+      return handleResponse(response);
+    },
+    updateCenter: async (centerId, centerData) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/centers/${centerId}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(centerData),
+      });
+      return handleResponse(response);
+    },
+    deleteCenter: async (centerId) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/centers/${centerId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (response.status === 204) return true;
+      return handleResponse(response);
+    },
+    getStudentCenter: async () => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/student-center`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    assignCenter: async (assignData) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/assign-center`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(assignData),
+      });
+      return handleResponse(response);
+    },
+    assignCenterBulk: async (assignBulkData) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/assign-center/bulk`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(assignBulkData),
+      });
+      return handleResponse(response);
+    },
+    markAttendance: async (coords) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/mark`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(coords),
+      });
+      return handleResponse(response);
+    },
+    getHistory: async () => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/history`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    getRecords: async (date, centerId, batchId) => {
+      let url = `${BASE_URL}/geo-attendance/records?`;
+      if (date) url += `date=${encodeURIComponent(date)}&`;
+      if (centerId) url += `center_id=${encodeURIComponent(centerId)}&`;
+      if (batchId) url += `batch_id=${encodeURIComponent(batchId)}&`;
+      const response = await fetch(url, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    correctRecord: async (recordId, payload) => {
+      const response = await fetch(`${BASE_URL}/geo-attendance/records/${recordId}/correct`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload),
+      });
+      return handleResponse(response);
+    },
+    getStudents: async (centerId) => {
+      let url = `${BASE_URL}/geo-attendance/students`;
+      if (centerId) url += `?center_id=${encodeURIComponent(centerId)}`;
+      const response = await fetch(url, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    }
   }
 };
+
