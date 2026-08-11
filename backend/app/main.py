@@ -22,6 +22,8 @@ from app.modules.events.router import router as events_router
 from app.modules.documents.router import router as documents_router
 from app.modules.ai_features.router import router as ai_features_router
 from app.modules.digital_library.router import router as digital_library_router
+from app.modules.personal_space.router import router as personal_space_router
+from app.modules.placements.router import router as placements_router
 
 
 # Import Background worker
@@ -94,6 +96,8 @@ app.include_router(events_router, prefix=settings.API_V1_STR)
 app.include_router(documents_router, prefix=settings.API_V1_STR)
 app.include_router(ai_features_router, prefix=settings.API_V1_STR)
 app.include_router(digital_library_router, prefix=settings.API_V1_STR)
+app.include_router(personal_space_router, prefix=settings.API_V1_STR)
+app.include_router(placements_router, prefix=settings.API_V1_STR)
 app.include_router(test_router, prefix=settings.API_V1_STR)
 
 
@@ -101,6 +105,7 @@ app.include_router(test_router, prefix=settings.API_V1_STR)
 os.makedirs(os.path.join("uploads", "notes"), exist_ok=True)
 os.makedirs(os.path.join("uploads", "resumes"), exist_ok=True)
 os.makedirs(os.path.join("uploads", "applications"), exist_ok=True)
+os.makedirs(os.path.join("uploads", "personal"), exist_ok=True)
 
 # Mount static uploads
 app.mount("/static/uploads", StaticFiles(directory="uploads"), name="uploads")

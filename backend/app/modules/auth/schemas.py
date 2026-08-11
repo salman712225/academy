@@ -8,6 +8,7 @@ class UserBase(BaseModel):
     role: str = Field(..., description="student, trainer, associate, or head")
     batch_id: Optional[str] = None
     classes_assigned: Optional[List[str]] = []
+    personal_cloudinary_url: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -47,3 +48,4 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     role: Optional[str] = None
     batch_id: Optional[str] = None
+    personal_cloudinary_url: Optional[str] = None

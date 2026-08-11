@@ -718,5 +718,141 @@ export const api = {
       });
       return handleResponse(response);
     }
+  },
+
+  // Personal Space
+  personal: {
+    tasks: {
+      list: async () => {
+        const response = await fetch(`${BASE_URL}/personal/tasks`, {
+          headers: getHeaders(),
+        });
+        return handleResponse(response);
+      },
+      create: async (task) => {
+        const response = await fetch(`${BASE_URL}/personal/tasks`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(task),
+        });
+        return handleResponse(response);
+      },
+      toggle: async (taskId) => {
+        const response = await fetch(`${BASE_URL}/personal/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: getHeaders(),
+        });
+        return handleResponse(response);
+      },
+      delete: async (taskId) => {
+        const response = await fetch(`${BASE_URL}/personal/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        });
+        if (response.status === 204) return true;
+        return handleResponse(response);
+      }
+    },
+    documents: {
+      list: async () => {
+        const response = await fetch(`${BASE_URL}/personal/documents`, {
+          headers: getHeaders(),
+        });
+        return handleResponse(response);
+      },
+      create: async (formData) => {
+        const response = await fetch(`${BASE_URL}/personal/documents`, {
+          method: 'POST',
+          headers: {
+            'Authorization': getHeaders().Authorization
+          },
+          body: formData,
+        });
+        return handleResponse(response);
+      },
+      update: async (docId, formData) => {
+        const response = await fetch(`${BASE_URL}/personal/documents/${docId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': getHeaders().Authorization
+          },
+          body: formData,
+        });
+        return handleResponse(response);
+      },
+      delete: async (docId) => {
+        const response = await fetch(`${BASE_URL}/personal/documents/${docId}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        });
+        if (response.status === 204) return true;
+        return handleResponse(response);
+      }
+    },
+    settings: {
+      save: async (settingsData) => {
+        const response = await fetch(`${BASE_URL}/personal/settings`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify(settingsData),
+        });
+        return handleResponse(response);
+      },
+      testCloudinary: async (settingsData) => {
+        const response = await fetch(`${BASE_URL}/personal/settings/test`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(settingsData),
+        });
+        return handleResponse(response);
+      }
+    }
+  },
+  placements: {
+    listLeads: async (batchId) => {
+      const url = batchId ? `${BASE_URL}/placements?batch_id=${batchId}` : `${BASE_URL}/placements`;
+      const response = await fetch(url, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    createLead: async (leadData) => {
+      const response = await fetch(`${BASE_URL}/placements`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(leadData),
+      });
+      return handleResponse(response);
+    },
+    updateLead: async (leadId, leadData) => {
+      const response = await fetch(`${BASE_URL}/placements/${leadId}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(leadData),
+      });
+      return handleResponse(response);
+    },
+    deleteLead: async (leadId) => {
+      const response = await fetch(`${BASE_URL}/placements/${leadId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (response.status === 204) return true;
+      return handleResponse(response);
+    },
+    getStats: async () => {
+      const response = await fetch(`${BASE_URL}/placements/stats`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(response);
+    },
+    generateOutreach: async (outreachData) => {
+      const response = await fetch(`${BASE_URL}/placements/generate-outreach`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(outreachData),
+      });
+      return handleResponse(response);
+    }
   }
 };

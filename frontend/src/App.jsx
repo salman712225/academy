@@ -298,6 +298,11 @@ function App() {
                     </li>
                   </>
                 )}
+                {/* Global Personal Space Option */}
+                <hr style={{ border: '0', borderTop: '1px solid var(--border-color)', margin: '12px 0', opacity: '0.4' }} />
+                <li className={`nav-item ${activeTab === 'personal_space' ? 'active' : ''}`} onClick={() => setActiveTab('personal_space')}>
+                  Personal Space
+                </li>
               </ul>
             </div>
             
@@ -369,6 +374,9 @@ function App() {
 
             {/* Digital Library Panel */}
             {activeTab === 'digital_library' && (user.role === 'head' || user.permissions?.digital_library) && <DigitalLibraryPanel user={user} />}
+
+            {/* Personal Space Panel */}
+            {activeTab === 'personal_space' && <PersonalSpacePanel user={user} />}
           </main>
         </div>
       ) : (
@@ -4773,7 +4781,7 @@ function ResumesListPanel() {
 }
 
 function AIPlacementSuitePanel({ user }) {
-  const [activeSubTab, setActiveSubTab] = useState('ats');
+  const [activeSubTab, setActiveSubTab] = useState('kanban');
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -4785,6 +4793,8 @@ function AIPlacementSuitePanel({ user }) {
       {/* Sub-tab navigation bar */}
       <div id="ai-placement-tabs" className="glass-card" style={{ padding: '8px', marginBottom: '28px', display: 'flex', gap: '8px', flexWrap: 'wrap', borderRadius: '12px' }}>
         {[
+          { id: 'kanban', label: 'Placement Kanban', icon: '💼' },
+          { id: 'outreach', label: 'AI Outreach Gen', icon: '📧' },
           { id: 'ats', label: 'ATS Score Analyzer', icon: '⚡' },
           { id: 'builder', label: 'Resume Builder', icon: '📝' },
           { id: 'interview', label: 'Interview Simulator', icon: '🗣️' },
@@ -4818,6 +4828,8 @@ function AIPlacementSuitePanel({ user }) {
         {activeSubTab === 'builder' && <ResumeBuilderPanel user={user} />}
         {activeSubTab === 'interview' && <InterviewPrepPanel />}
         {activeSubTab === 'coach' && <CoachChatPanel />}
+        {activeSubTab === 'kanban' && <PlacementKanbanPanel user={user} />}
+        {activeSubTab === 'outreach' && <OutreachGeneratorPanel user={user} />}
       </div>
     </div>
   );
@@ -7843,6 +7855,1463 @@ function DigitalLibraryPanel({ user }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PersonalSpacePanel({ user }) {
+  const [activeSubTab, setActiveSubTab] = useState('todo'); // todo, pages, settings
+
+  // --- Todo Tasks State ---
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [taskSearch, setTaskSearch] = useState('');
+  const [taskFilter, setTaskFilter] = useState('all'); // all, pending, completed
+
+  // --- Documents/Pages State ---
+  const [docs, setDocs] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [docTitle, setDocTitle] = useState('');
+  const [docContent, setDocContent] = useState('');
+  const [docFile, setDocFile] = useState(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [isSavingDoc, setIsSavingDoc] = useState(false);
+
+  // --- Settings State ---
+  const [cloudinaryUrl, setCloudinaryUrl] = useState(user?.personal_cloudinary_url || '');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
+
+  // --- Load Data ---
+  useEffect(() => {
+    if (activeSubTab === 'todo') {
+      fetchTasks();
+    } else if (activeSubTab === 'pages') {
+      fetchDocs();
+    }
+  }, [activeSubTab]);
+
+  const fetchTasks = async () => {
+    try {
+      setTasksLoading(true);
+      const data = await api.personal.tasks.list();
+      setTasks(data);
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  const fetchDocs = async () => {
+    try {
+      setDocsLoading(true);
+      const data = await api.personal.documents.list();
+      setDocs(data);
+    } catch (err) {
+      console.error("Failed to fetch documents:", err);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  // --- Tasks Handlers ---
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+    try {
+      const task = await api.personal.tasks.create({ title: newTaskTitle.trim() });
+      setTasks(prev => [...prev, task]);
+      setNewTaskTitle('');
+    } catch (err) {
+      console.error("Failed to create task:", err);
+    }
+  };
+
+  const handleToggleTask = async (taskId) => {
+    try {
+      const updatedTask = await api.personal.tasks.toggle(taskId);
+      setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await api.personal.tasks.delete(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    }
+  };
+
+  // --- Documents Handlers ---
+  const handleAddNewDoc = () => {
+    setSelectedDoc({ id: 'new', title: 'Untitled Page', content: '', filename: null, file_url: null });
+    setDocTitle('Untitled Page');
+    setDocContent('');
+    setDocFile(null);
+    setEditMode(true);
+    setPreviewMode(false);
+  };
+
+  const handleSelectDoc = (doc) => {
+    setSelectedDoc(doc);
+    setDocTitle(doc.title);
+    setDocContent(doc.content || '');
+    setDocFile(null);
+    setEditMode(false);
+    setPreviewMode(false);
+  };
+
+  const handleSaveDoc = async (e) => {
+    e.preventDefault();
+    if (!docTitle.trim()) return;
+    try {
+      setIsSavingDoc(true);
+      const formData = new FormData();
+      formData.append('title', docTitle);
+      formData.append('content', docContent);
+      if (docFile) {
+        formData.append('file', docFile);
+      }
+
+      let savedDoc;
+      if (selectedDoc.id === 'new') {
+        savedDoc = await api.personal.documents.create(formData);
+        setDocs(prev => [savedDoc, ...prev]);
+      } else {
+        savedDoc = await api.personal.documents.update(selectedDoc.id, formData);
+        setDocs(prev => prev.map(d => d.id === selectedDoc.id ? savedDoc : d));
+      }
+      setSelectedDoc(savedDoc);
+      setDocFile(null);
+      setEditMode(false);
+      // Refresh list to pull updated timestamps/urls
+      const updatedList = await api.personal.documents.list();
+      setDocs(updatedList);
+    } catch (err) {
+      console.error("Failed to save document:", err);
+      alert(err.detail || "Failed to save document");
+    } finally {
+      setIsSavingDoc(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId) => {
+    if (!window.confirm("Are you sure you want to delete this page/plan? This cannot be undone.")) return;
+    try {
+      await api.personal.documents.delete(docId);
+      setDocs(prev => prev.filter(d => d.id !== docId));
+      if (selectedDoc?.id === docId) {
+        setSelectedDoc(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete document:", err);
+    }
+  };
+
+  // --- Settings Handlers ---
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    try {
+      setIsSavingSettings(true);
+      setSettingsMessage({ type: '', text: '' });
+      await api.personal.settings.save({ personal_cloudinary_url: cloudinaryUrl.trim() || null });
+      
+      // Update context and localStorage
+      const updatedUser = { ...user, personal_cloudinary_url: cloudinaryUrl.trim() || null };
+      localStorage.setItem('academy_user', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('auth_change'));
+      
+      setSettingsMessage({ type: 'success', text: 'Cloudinary storage settings updated successfully!' });
+    } catch (err) {
+      setSettingsMessage({ type: 'error', text: err.detail || 'Failed to update settings.' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleTestCloudinary = async () => {
+    if (!cloudinaryUrl.trim()) {
+      setSettingsMessage({ type: 'error', text: 'Please enter a Cloudinary connection string first.' });
+      return;
+    }
+    try {
+      setIsTesting(true);
+      setSettingsMessage({ type: '', text: '' });
+      const res = await api.personal.settings.testCloudinary({ personal_cloudinary_url: cloudinaryUrl.trim() });
+      setSettingsMessage({ type: 'success', text: res.message || 'Connection check successful!' });
+    } catch (err) {
+      setSettingsMessage({ type: 'error', text: err.detail || 'Connection failed. Check your API credentials.' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  // --- Simple Markdown Parser ---
+  const renderMarkdown = (text) => {
+    if (!text) return '<p style="color: var(--text-muted); font-style: italic;">No content written yet.</p>';
+    
+    // Escape HTML to prevent XSS
+    let html = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+      
+    // Replace Markdown syntax
+    html = html.replace(/^### (.*$)/gim, '<h3 style="margin: 16px 0 8px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 style="margin: 20px 0 10px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; color: var(--accent-cyan);">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 style="margin: 24px 0 12px 0; font-size: 2rem; color: var(--accent-indigo);">$1</h1>');
+    
+    html = html.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
+    html = html.replace(/\*(.*)\*/gim, '<em>$1</em>');
+    
+    html = html.replace(/^- \[ \] (.*$)/gim, '<div style="display: flex; gap: 8px; margin: 4px 0;"><input type="checkbox" disabled /> <span>$1</span></div>');
+    html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; gap: 8px; margin: 4px 0;"><input type="checkbox" checked disabled /> <span style="text-decoration: line-through; color: var(--text-muted);">$1</span></div>');
+    
+    html = html.replace(/^\* (.*$)/gim, '<li style="margin-left: 20px;">$1</li>');
+    html = html.replace(/^- (.*$)/gim, '<li style="margin-left: 20px;">$1</li>');
+    
+    html = html.replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid var(--accent-cyan); padding-left: 12px; margin: 12px 0; color: var(--text-secondary); font-style: italic;">$1</blockquote>');
+    html = html.replace(/`([^`]+)`/g, '<code style="background: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; border: 1px solid var(--border-color);">$1</code>');
+
+    // Split paragraphs
+    html = html.split('\n\n').map(p => {
+      const trimmed = p.trim();
+      if (trimmed.startsWith('<h') || trimmed.startsWith('<li') || trimmed.startsWith('<block') || trimmed.startsWith('<div')) {
+        return p;
+      }
+      return `<p style="margin-bottom: 12px; line-height: 1.7;">${p.replace(/\n/g, '<br/>')}</p>`;
+    }).join('\n');
+
+    return html;
+  };
+
+  // --- Filtering & Stats ---
+  const filteredTasks = tasks.filter(t => {
+    const matchesSearch = t.title.toLowerCase().includes(taskSearch.toLowerCase());
+    if (taskFilter === 'completed') return matchesSearch && t.completed;
+    if (taskFilter === 'pending') return matchesSearch && !t.completed;
+    return matchesSearch;
+  });
+
+  const completedCount = tasks.filter(t => t.completed).length;
+  const taskProgress = tasks.length ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+  return (
+    <div className="personal-space-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '80vh' }}>
+      
+      {/* Tab Header */}
+      <div className="glass-card" style={{ padding: '20px 24px' }}>
+        <div className="flex-between" style={{ flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h2 className="title-gradient" style={{ fontSize: '1.8rem' }}>Personal Workspace</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
+              Your private Notion-style workspace for notes, plans, checklist tasks, and custom Cloudinary backups.
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-input)', padding: '4px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)' }}>
+            <button 
+              className="btn" 
+              onClick={() => setActiveSubTab('todo')}
+              style={{ 
+                padding: '8px 16px', 
+                fontSize: '0.85rem', 
+                background: activeSubTab === 'todo' ? 'var(--bg-card)' : 'transparent',
+                borderColor: activeSubTab === 'todo' ? 'var(--border-color-hover)' : 'transparent',
+                color: activeSubTab === 'todo' ? 'var(--accent-cyan)' : 'var(--text-secondary)'
+              }}
+            >
+              ✅ Daily Checklist
+            </button>
+            <button 
+              className="btn" 
+              onClick={() => setActiveSubTab('pages')}
+              style={{ 
+                padding: '8px 16px', 
+                fontSize: '0.85rem', 
+                background: activeSubTab === 'pages' ? 'var(--bg-card)' : 'transparent',
+                borderColor: activeSubTab === 'pages' ? 'var(--border-color-hover)' : 'transparent',
+                color: activeSubTab === 'pages' ? 'var(--accent-cyan)' : 'var(--text-secondary)'
+              }}
+            >
+              📝 Plans & Notion Space
+            </button>
+            <button 
+              className="btn" 
+              onClick={() => setActiveSubTab('settings')}
+              style={{ 
+                padding: '8px 16px', 
+                fontSize: '0.85rem', 
+                background: activeSubTab === 'settings' ? 'var(--bg-card)' : 'transparent',
+                borderColor: activeSubTab === 'settings' ? 'var(--border-color-hover)' : 'transparent',
+                color: activeSubTab === 'settings' ? 'var(--accent-cyan)' : 'var(--text-secondary)'
+              }}
+            >
+              ⚙️ Cloud Settings
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Checklist Sub-tab --- */}
+      {activeSubTab === 'todo' && (
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* Progress and Add Form */}
+          <div className="flex-between" style={{ gap: '20px', flexWrap: 'wrap', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+            <div style={{ flex: '1', minWidth: '240px' }}>
+              <div className="flex-between" style={{ marginBottom: '8px', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Task Completion Progress</span>
+                <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{taskProgress}% ({completedCount}/{tasks.length})</span>
+              </div>
+              <div style={{ height: '8px', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                <div style={{ height: '100%', width: `${taskProgress}%`, background: 'linear-gradient(90deg, var(--accent-indigo) 0%, var(--accent-cyan) 100%)', transition: 'width 0.4s ease' }} />
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '480px' }}>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="What is your next checklist item? (Press Enter)" 
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                style={{ margin: 0 }}
+                required
+              />
+              <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>Add Item</button>
+            </form>
+          </div>
+
+          {/* Filters & Search */}
+          <div className="flex-between" style={{ gap: '12px', flexWrap: 'wrap' }}>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="Search checklist..." 
+              value={taskSearch}
+              onChange={e => setTaskSearch(e.target.value)}
+              style={{ maxWidth: '300px', margin: 0 }}
+            />
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {['all', 'pending', 'completed'].map(f => (
+                <button 
+                  key={f}
+                  className="btn" 
+                  onClick={() => setTaskFilter(f)}
+                  style={{ 
+                    padding: '4px 12px', 
+                    fontSize: '0.75rem', 
+                    textTransform: 'capitalize',
+                    background: taskFilter === f ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                    borderColor: taskFilter === f ? 'var(--accent-cyan)' : 'var(--border-color)',
+                    color: taskFilter === f ? 'var(--text-primary)' : 'var(--text-secondary)'
+                  }}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Checklist Items */}
+          {tasksLoading ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Loading checklist...</p>
+          ) : filteredTasks.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', border: '1px dashed var(--border-color)', borderRadius: 'var(--border-radius-md)' }}>
+              No tasks found in checklist matching filters.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredTasks.map(t => (
+                <div 
+                  key={t.id} 
+                  className="flex-between" 
+                  style={{ 
+                    background: 'var(--bg-input)', 
+                    padding: '12px 16px', 
+                    borderRadius: 'var(--border-radius-md)', 
+                    border: '1px solid var(--border-color)', 
+                    transition: 'border-color 0.2s',
+                    opacity: t.completed ? 0.75 : 1
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-color-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={t.completed} 
+                      onChange={() => handleToggleTask(t.id)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-cyan)' }}
+                    />
+                    <span style={{ 
+                      fontSize: '0.95rem', 
+                      textDecoration: t.completed ? 'line-through' : 'none',
+                      color: t.completed ? 'var(--text-muted)' : 'var(--text-primary)',
+                      lineHeight: '1.4'
+                    }}>
+                      {t.title}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      {new Date(t.created_at).toLocaleDateString()}
+                    </span>
+                    <button 
+                      onClick={() => handleDeleteTask(t.id)} 
+                      style={{ 
+                        background: 'transparent', 
+                        border: 'none', 
+                        color: 'var(--accent-rose)', 
+                        cursor: 'pointer', 
+                        fontSize: '1.1rem',
+                        padding: '4px'
+                      }}
+                      title="Delete checklist item"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- Notion Space / Plans Sub-tab --- */}
+      {activeSubTab === 'pages' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '20px', alignItems: 'start' }}>
+          
+          {/* Pages Sidebar list */}
+          <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '500px' }}>
+            <div className="flex-between" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>My Pages</span>
+              <button 
+                className="btn" 
+                onClick={handleAddNewDoc}
+                style={{ padding: '2px 8px', fontSize: '0.75rem', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)' }}
+              >
+                + New
+              </button>
+            </div>
+            
+            {docsLoading ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</p>
+            ) : docs.length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', margin: '20px 0' }}>No pages created yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '420px', overflowY: 'auto' }}>
+                {docs.map(d => (
+                  <div 
+                    key={d.id}
+                    onClick={() => handleSelectDoc(d)}
+                    style={{ 
+                      padding: '8px 12px', 
+                      borderRadius: 'var(--border-radius-md)', 
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      background: selectedDoc?.id === d.id ? 'var(--bg-card-hover)' : 'transparent',
+                      color: selectedDoc?.id === d.id ? 'var(--accent-cyan)' : 'var(--text-primary)',
+                      border: '1px solid',
+                      borderColor: selectedDoc?.id === d.id ? 'var(--border-color-hover)' : 'transparent',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      📄 {d.title}
+                    </span>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteDoc(d.id);
+                      }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1rem', cursor: 'pointer', padding: '0 4px' }}
+                      title="Delete page"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Active Workspace / Page View */}
+          <div className="glass-card" style={{ minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
+            {!selectedDoc ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', gap: '12px' }}>
+                <span style={{ fontSize: '3rem' }}>📓</span>
+                <p style={{ fontSize: '1rem' }}>Select a page from the sidebar or create a new plan to begin editing.</p>
+                <button className="btn btn-primary" onClick={handleAddNewDoc}>Create a Page</button>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveDoc} style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+                
+                {/* Header Actions */}
+                <div className="flex-between" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {editMode ? (
+                      <>
+                        <button type="submit" className="btn btn-primary" disabled={isSavingDoc}>
+                          {isSavingDoc ? 'Saving...' : 'Save Changes'}
+                        </button>
+                        <button type="button" className="btn btn-secondary" onClick={() => {
+                          if (selectedDoc.id === 'new') setSelectedDoc(null);
+                          setEditMode(false);
+                        }}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="btn btn-primary" onClick={() => setEditMode(true)}>
+                        ✏️ Edit Page
+                      </button>
+                    )}
+                  </div>
+                  
+                  {!editMode && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Last updated: {new Date(selectedDoc.updated_at).toLocaleString()}
+                    </span>
+                  )}
+                  
+                  {editMode && (
+                    <button 
+                      type="button" 
+                      className="btn" 
+                      onClick={() => setPreviewMode(!previewMode)}
+                      style={{ fontSize: '0.8rem', background: 'var(--bg-input)', borderColor: 'var(--border-color)' }}
+                    >
+                      {previewMode ? '✍️ Edit View' : '👁️ Preview Markdown'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Document Workspace */}
+                {editMode ? (
+                  /* Edit Mode */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+                    <div className="form-group">
+                      <label className="form-label">Page Title</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        value={docTitle} 
+                        onChange={e => setDocTitle(e.target.value)}
+                        placeholder="Page Title (e.g. Weekly Batch Plan)"
+                        required
+                        disabled={previewMode}
+                      />
+                    </div>
+                    
+                    {previewMode ? (
+                      /* Markdown Live Preview */
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label className="form-label">Markdown Live Preview</label>
+                        <div 
+                          className="form-control"
+                          style={{ 
+                            minHeight: '220px', 
+                            background: 'var(--bg-input)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: 'var(--border-radius-md)', 
+                            padding: '16px', 
+                            overflowY: 'auto' 
+                          }}
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(docContent) }}
+                        />
+                      </div>
+                    ) : (
+                      /* Text Editor */
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <div className="flex-between">
+                          <label className="form-label">Notes & Description (Supports Markdown)</label>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Use #, ##, **, -, [ ], or ` for formatting</span>
+                        </div>
+                        <textarea 
+                          className="form-control" 
+                          rows="10"
+                          value={docContent} 
+                          onChange={e => setDocContent(e.target.value)}
+                          placeholder="Write your plan details, summaries, or Markdown notes here..."
+                          style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '0.9rem' }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* File Attachment Upload */}
+                    <div className="form-group" style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '16px' }}>
+                      <label className="form-label">Attach File / Document (PDF, Images, Zip)</label>
+                      {selectedDoc.filename && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                          Current Attachment: <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>{selectedDoc.filename}</span>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        onChange={e => setDocFile(e.target.files[0])}
+                        style={{ display: 'block', marginTop: '6px' }}
+                      />
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Uploading files will store them in your configured Cloudinary backup cloud (if credentials are set).
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Read/View Mode */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+                    <div>
+                      <h1 style={{ fontSize: '2.2rem', marginBottom: '8px' }}>{selectedDoc.title}</h1>
+                    </div>
+                    
+                    {/* Rendered Content */}
+                    <div 
+                      style={{ 
+                        background: 'rgba(255,255,255,0.02)', 
+                        padding: '20px', 
+                        borderRadius: 'var(--border-radius-md)', 
+                        border: '1px solid var(--border-color)', 
+                        minHeight: '200px'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedDoc.content) }}
+                    />
+                    
+                    {/* File Attachment Download Link */}
+                    {selectedDoc.file_url && (
+                      <div 
+                        style={{ 
+                          borderTop: '1px solid var(--border-color)', 
+                          paddingTop: '16px', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between',
+                          background: 'var(--bg-input)',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--border-radius-md)',
+                          border: '1px solid var(--border-color)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.2rem' }}>📎</span>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>{selectedDoc.filename || 'Attached Document'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Stored in cloud repository</div>
+                          </div>
+                        </div>
+                        <a 
+                          href={selectedDoc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="btn"
+                          style={{ padding: '6px 14px', fontSize: '0.8rem', color: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)' }}
+                        >
+                          Download / View File
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- Cloud settings Sub-tab --- */}
+      {activeSubTab === 'settings' && (
+        <div className="glass-card" style={{ maxWidth: '680px', margin: '0 auto', width: '100%' }}>
+          <h3 style={{ marginBottom: '12px' }}>Cloudinary Storage Settings</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '20px' }}>
+            Academy allows you to configure your own personal **Cloudinary storage account**. 
+            If you provide a valid API connection string, any documents or files you upload in your personal space 
+            will go directly to your personal Cloudinary cloud. If blank, uploads default to the server's local fallback.
+          </p>
+
+          <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="form-group">
+              <label className="form-label">Cloudinary Connection URL (CLOUDINARY_URL)</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="cloudinary://622257769199411:2BeXQ_atOxgALKuUjiibJnp7YnM@n83dphoi" 
+                value={cloudinaryUrl}
+                onChange={e => setCloudinaryUrl(e.target.value)}
+                required={false}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Format example: `cloudinary://622257769199411:2BeXQ_atOxgALKuUjiibJnp7YnM@n83dphoi` (Do not include brackets `[]`)
+              </span>
+            </div>
+
+            {/* Connection Test Results */}
+            {settingsMessage.text && (
+              <div 
+                className="alert" 
+                style={{ 
+                  padding: '12px 16px', 
+                  borderRadius: 'var(--border-radius-md)', 
+                  fontSize: '0.85rem',
+                  background: settingsMessage.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
+                  border: '1px solid',
+                  borderColor: settingsMessage.type === 'success' ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                  color: settingsMessage.type === 'success' ? '#34d399' : '#f87171',
+                  marginBottom: '8px'
+                }}
+              >
+                {settingsMessage.type === 'success' ? '🟢 ' : '🔴 '} {settingsMessage.text}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '8px' }}>
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={isSavingSettings}
+              >
+                {isSavingSettings ? 'Saving...' : 'Save Settings'}
+              </button>
+              
+              <button 
+                type="button" 
+                className="btn" 
+                onClick={handleTestCloudinary}
+                disabled={isTesting}
+                style={{ 
+                  background: 'var(--bg-input)', 
+                  borderColor: 'var(--accent-cyan)', 
+                  color: 'var(--accent-cyan)' 
+                }}
+              >
+                {isTesting ? 'Testing Link...' : '🔌 Test Connection'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function PlacementKanbanPanel({ user }) {
+  const isStudent = user.role === 'student';
+  const [activeTab, setActiveTab] = useState(isStudent ? 'board' : 'dashboard'); // board, dashboard
+  const [leads, setLeads] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Form states for adding/editing leads
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [company, setCompany] = useState('');
+  const [role, setRole] = useState('');
+  const [stage, setStage] = useState('applied');
+  const [salary, setSalary] = useState('');
+  const [notes, setNotes] = useState('');
+  const [editingLeadId, setEditingLeadId] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [targetStudentEmail, setTargetStudentEmail] = useState('');
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedBatch]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      if (isStudent) {
+        const studentLeads = await api.placements.listLeads();
+        setLeads(studentLeads);
+      } else {
+        // Area Head lists leads & stats
+        const allLeads = await api.placements.listLeads(selectedBatch || null);
+        setLeads(allLeads);
+        
+        const placementStats = await api.placements.getStats();
+        setStats(placementStats);
+
+        const listBatches = await api.batches.list();
+        setBatches(listBatches);
+
+        const allUsers = await api.auth.listUsers();
+        const onlyStudents = allUsers.filter(u => u.role === 'student');
+        setStudents(onlyStudents);
+        if (onlyStudents.length > 0) {
+          setTargetStudentEmail(onlyStudents[0].email);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch placement leads:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateLead = async (e) => {
+    e.preventDefault();
+    if (!company.trim() || !role.trim()) return;
+
+    try {
+      const payload = {
+        company: company.trim(),
+        role: role.trim(),
+        stage,
+        salary: salary.trim() || null,
+        notes: notes.trim() || null
+      };
+      if (!isStudent) {
+        payload.student_email = targetStudentEmail;
+      }
+      const newLead = await api.placements.createLead(payload);
+      setLeads(prev => [newLead, ...prev]);
+      
+      // Reset form
+      setCompany('');
+      setRole('');
+      setStage('applied');
+      setSalary('');
+      setNotes('');
+      setShowAddForm(false);
+      
+      if (!isStudent) {
+        // Refresh stats
+        const updatedStats = await api.placements.getStats();
+        setStats(updatedStats);
+      }
+    } catch (err) {
+      alert(err.message || "Failed to create lead");
+    }
+  };
+
+  const handleStageChange = async (leadId, newStage) => {
+    try {
+      const updated = await api.placements.updateLead(leadId, { stage: newStage });
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l));
+      
+      if (!isStudent) {
+        // Refresh stats
+        const updatedStats = await api.placements.getStats();
+        setStats(updatedStats);
+      }
+    } catch (err) {
+      alert(err.message || "Failed to update stage");
+    }
+  };
+
+  const handleUpdateNotes = async (leadId, updatedNotes) => {
+    try {
+      await api.placements.updateLead(leadId, { notes: updatedNotes });
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: updatedNotes } : l));
+      setEditingLeadId(null);
+    } catch (err) {
+      alert(err.message || "Failed to update notes");
+    }
+  };
+
+  const handleDeleteLead = async (leadId) => {
+    if (!window.confirm("Are you sure you want to delete this job lead?")) return;
+    try {
+      await api.placements.deleteLead(leadId);
+      setLeads(prev => prev.filter(l => l.id !== leadId));
+      
+      if (!isStudent) {
+        const updatedStats = await api.placements.getStats();
+        setStats(updatedStats);
+      }
+    } catch (err) {
+      alert(err.message || "Failed to delete lead");
+    }
+  };
+
+  // Group leads by stage
+  const columns = {
+    applied: leads.filter(l => l.stage === 'applied'),
+    interviewing: leads.filter(l => l.stage === 'interviewing'),
+    offer: leads.filter(l => l.stage === 'offer'),
+    hired: leads.filter(l => l.stage === 'hired')
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      
+      {/* CRM Mode Header & Navigation */}
+      <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="flex-between" style={{ flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.4rem', color: 'var(--accent-cyan)' }}>💼 Placement Pipeline CRM</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
+              {isStudent 
+                ? "Track your applications, interview invites, offers, and placement status."
+                : "Centralized monitoring of placement metrics and lead funnels across all batches."}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {!isStudent && (
+              <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-input)', padding: '4px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)' }}>
+                <button 
+                  className="btn" 
+                  onClick={() => setActiveTab('dashboard')}
+                  style={{ 
+                    padding: '6px 14px', 
+                    fontSize: '0.8rem', 
+                    background: activeTab === 'dashboard' ? 'var(--bg-card)' : 'transparent',
+                    borderColor: activeTab === 'dashboard' ? 'var(--border-color-hover)' : 'transparent',
+                    color: activeTab === 'dashboard' ? 'var(--accent-cyan)' : 'var(--text-secondary)'
+                  }}
+                >
+                  📊 Central Dashboard
+                </button>
+                <button 
+                  className="btn" 
+                  onClick={() => setActiveTab('board')}
+                  style={{ 
+                    padding: '6px 14px', 
+                    fontSize: '0.8rem', 
+                    background: activeTab === 'board' ? 'var(--bg-card)' : 'transparent',
+                    borderColor: activeTab === 'board' ? 'var(--border-color-hover)' : 'transparent',
+                    color: activeTab === 'board' ? 'var(--accent-cyan)' : 'var(--text-secondary)'
+                  }}
+                >
+                  📋 Master Kanban Board
+                </button>
+              </div>
+            )}
+            
+            <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>
+              {isStudent ? '+ Track New Lead' : '👤 + Log Student Placement'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Dashboard tab (Area Head Only) --- */}
+      {activeTab === 'dashboard' && stats && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* KPI widgets */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+            <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Active Leads</span>
+              <span style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text-primary)' }}>{stats.total_leads}</span>
+            </div>
+            <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Students Hired</span>
+              <span style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-emerald)' }}>{stats.hired_count}</span>
+            </div>
+            <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Under Interviewing</span>
+              <span style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-amber)' }}>{stats.interviewing_count}</span>
+            </div>
+            <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Batch Conversion Rate</span>
+              <span style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-cyan)' }}>{stats.conversion_rate}%</span>
+            </div>
+          </div>
+
+          {/* Filters & Batch Statistics */}
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <div className="flex-between" style={{ flexWrap: 'wrap', gap: '16px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+              <h4 style={{ color: 'var(--text-primary)' }}>Batch Analytics Summary</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Filter Master Data:</span>
+                <select 
+                  className="form-control" 
+                  value={selectedBatch} 
+                  onChange={e => setSelectedBatch(e.target.value)}
+                  style={{ width: '220px', margin: 0, padding: '8px' }}
+                >
+                  <option value="">All Batches</option>
+                  {batches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Batch funnels breakdown */}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                    <th style={{ padding: '12px' }}>Batch Name</th>
+                    <th style={{ padding: '12px' }}>Applied</th>
+                    <th style={{ padding: '12px' }}>Interviewing</th>
+                    <th style={{ padding: '12px' }}>Offers Recd</th>
+                    <th style={{ padding: '12px' }}>Total Hired</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(stats.batch_stats).map(([bname, counts]) => (
+                    <tr key={bname} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                      <td style={{ padding: '12px', fontWeight: '600' }}>{bname}</td>
+                      <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{counts.applied}</td>
+                      <td style={{ padding: '12px', color: 'var(--accent-amber)' }}>{counts.interviewing}</td>
+                      <td style={{ padding: '12px', color: 'var(--accent-indigo)' }}>{counts.offer}</td>
+                      <td style={{ padding: '12px', color: 'var(--accent-emerald)', fontWeight: 'bold' }}>{counts.hired}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Master Leads list */}
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h4 style={{ marginBottom: '16px' }}>Master Students Placement Leads ({leads.length})</h4>
+            {leads.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '20px 0' }}>No leads tracked matching active filters.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                      <th style={{ padding: '12px' }}>Student</th>
+                      <th style={{ padding: '12px' }}>Batch</th>
+                      <th style={{ padding: '12px' }}>Company</th>
+                      <th style={{ padding: '12px' }}>Job Role</th>
+                      <th style={{ padding: '12px' }}>Pipeline Stage</th>
+                      <th style={{ padding: '12px' }}>CTC / Salary</th>
+                      <th style={{ padding: '12px' }}>Last Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leads.map(l => (
+                      <tr key={l.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                        <td style={{ padding: '12px' }}>
+                          <div style={{ fontWeight: '600' }}>{l.student_name || 'Student'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{l.student_email}</div>
+                        </td>
+                        <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{l.batch_name || 'N/A'}</td>
+                        <td style={{ padding: '12px', fontWeight: '600' }}>{l.company}</td>
+                        <td style={{ padding: '12px' }}>{l.role}</td>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            background: l.stage === 'hired' ? 'rgba(16, 185, 129, 0.15)' : 
+                                        l.stage === 'offer' ? 'rgba(168, 85, 247, 0.15)' :
+                                        l.stage === 'interviewing' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                            color: l.stage === 'hired' ? 'var(--accent-emerald)' : 
+                                   l.stage === 'offer' ? '#c084fc' :
+                                   l.stage === 'interviewing' ? 'var(--accent-amber)' : 'var(--accent-cyan)'
+                          }}>
+                            {l.stage}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{l.salary || 'N/A'}</td>
+                        <td style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                          {new Date(l.updated_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      {/* --- Kanban Board View (Both Students and Area Heads) --- */}
+      {activeTab === 'board' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* Inline creation form */}
+          {showAddForm && (
+            <div className="glass-card" style={{ maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+              <h4 style={{ marginBottom: '16px' }}>{isStudent ? 'Track New Placement Lead' : 'Student Placement Record'}</h4>
+              <form onSubmit={handleCreateLead} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {!isStudent && (
+                  <div className="form-group">
+                    <label className="form-label">Student</label>
+                    <select 
+                      className="form-control" 
+                      value={targetStudentEmail} 
+                      onChange={e => setTargetStudentEmail(e.target.value)}
+                      required
+                    >
+                      {students.map(s => (
+                        <option key={s.id} value={s.email}>
+                          {s.name} ({s.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Company Name</label>
+                  <input type="text" className="form-control" value={company} onChange={e => setCompany(e.target.value)} placeholder="e.g. Google" required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Job Role / Title</label>
+                  <input type="text" className="form-control" value={role} onChange={e => setRole(e.target.value)} placeholder="e.g. Backend Developer" required />
+                </div>
+                <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="form-label">Current Pipeline Stage</label>
+                    <select className="form-control" value={stage} onChange={e => setStage(e.target.value)}>
+                      <option value="applied">Applied</option>
+                      <option value="interviewing">Interviewing</option>
+                      <option value="offer">Offer Received</option>
+                      <option value="hired">Hired</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">CTC / Salary Package (Optional)</label>
+                    <input type="text" className="form-control" value={salary} onChange={e => setSalary(e.target.value)} placeholder="e.g. 8 LPA" />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Follow-up Notes / Tasks</label>
+                  <textarea className="form-control" rows="3" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Resume submitted. Tech interview scheduled on Friday." />
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Track Job Lead</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Kanban Columns */}
+          {loading ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Loading pipeline boards...</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', alignItems: 'start' }}>
+              
+              {/* Columns Render loop */}
+              {Object.entries(columns).map(([colId, colLeads]) => {
+                const headerColors = {
+                  applied: 'var(--accent-blue)',
+                  interviewing: 'var(--accent-amber)',
+                  offer: 'var(--accent-indigo)',
+                  hired: 'var(--accent-emerald)'
+                };
+                
+                return (
+                  <div key={colId} className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(18, 26, 47, 0.4)', minHeight: '500px' }}>
+                    
+                    {/* Column Header */}
+                    <div style={{ borderBottom: `2px solid ${headerColors[colId]}`, paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', fontSize: '0.9rem', textTransform: 'uppercase', color: headerColors[colId] }}>
+                        {colId.replace('_', ' ')}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '10px', color: 'var(--text-secondary)' }}>
+                        {colLeads.length}
+                      </span>
+                    </div>
+
+                    {/* Column Cards */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '480px' }}>
+                      {colLeads.map(lead => (
+                        <div 
+                          key={lead.id} 
+                          className="glass-card" 
+                          style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-input)', 
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            transition: 'border-color 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = headerColors[colId]}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                        >
+                          <div className="flex-between" style={{ alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{lead.company}</div>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{lead.role}</div>
+                            </div>
+                            <button 
+                              onClick={() => handleDeleteLead(lead.id)}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer', fontSize: '1rem', padding: '0 4px' }}
+                              title="Delete lead"
+                            >
+                              &times;
+                            </button>
+                          </div>
+
+                          {lead.salary && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', fontWeight: '600' }}>
+                              💰 {lead.salary}
+                            </div>
+                          )}
+
+                          {lead.student_name && !isStudent && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              👤 {lead.student_name} ({lead.batch_name || 'No batch'})
+                            </div>
+                          )}
+
+                          {/* Inline Notes description */}
+                          {editingLeadId === lead.id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <textarea 
+                                className="form-control" 
+                                rows="2" 
+                                defaultValue={lead.notes || ''} 
+                                id={`notes-edit-${lead.id}`}
+                                style={{ fontSize: '0.8rem', padding: '6px' }}
+                              />
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button className="btn" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => setEditingLeadId(null)}>Cancel</button>
+                                <button className="btn btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => {
+                                  const text = document.getElementById(`notes-edit-${lead.id}`).value;
+                                  handleUpdateNotes(lead.id, text);
+                                }}>Save</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div 
+                              onClick={() => isStudent && setEditingLeadId(lead.id)}
+                              style={{ 
+                                fontSize: '0.8rem', 
+                                color: lead.notes ? 'var(--text-secondary)' : 'var(--text-muted)', 
+                                fontStyle: lead.notes ? 'normal' : 'italic',
+                                background: 'rgba(255,255,255,0.01)',
+                                padding: '6px',
+                                borderRadius: '4px',
+                                cursor: isStudent ? 'pointer' : 'default',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={isStudent ? "Click to edit notes" : lead.notes || "No notes written"}
+                            >
+                              {lead.notes || "+ Click to add pipeline notes"}
+                            </div>
+                          )}
+
+                          {/* Quick Stage Mover Selector */}
+                          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Move stage:</span>
+                            <select 
+                              value={lead.stage} 
+                              onChange={(e) => handleStageChange(lead.id, e.target.value)} 
+                              className="form-control"
+                              style={{ 
+                                margin: 0, 
+                                padding: '2px 6px', 
+                                fontSize: '0.75rem', 
+                                width: '130px', 
+                                background: 'var(--bg-input)',
+                                borderColor: 'var(--border-color)' 
+                              }}
+                            >
+                              <option value="applied">Applied</option>
+                              <option value="interviewing">Interviewing</option>
+                              <option value="offer">Offer Received</option>
+                              <option value="hired">Hired</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+            </div>
+          )}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function OutreachGeneratorPanel({ user }) {
+  const [roleTitle, setRoleTitle] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [resumeText, setResumeText] = useState('');
+  const [outreachType, setOutreachType] = useState('linkedin'); // linkedin, email, follow_up
+  const [draftText, setDraftText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleGenerate = async (e) => {
+    e.preventDefault();
+    if (!roleTitle.trim() || !companyName.trim()) {
+      setError("Job Title and Company Name are required.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      setDraftText('');
+      
+      const res = await api.placements.generateOutreach({
+        role_title: roleTitle.trim(),
+        company_name: companyName.trim(),
+        job_description: jobDescription.trim() || null,
+        resume_text: resumeText.trim() || null,
+        outreach_type: outreachType
+      });
+      setDraftText(res.generated_text);
+      setSuccess("AI Outreach draft generated successfully!");
+    } catch (err) {
+      setError(err.message || "Failed to generate outreach. Make sure you set your API keys in the AI Settings sub-tab.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyToClipboard = () => {
+    if (!draftText) return;
+    navigator.clipboard.writeText(draftText);
+    alert("Draft text copied to clipboard!");
+  };
+
+  return (
+    <div className="glass-card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+      
+      {/* Parameters Form Panel */}
+      <div>
+        <h3 style={{ marginBottom: '8px' }}>🤖 Outreach Draft Assistant</h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '20px' }}>
+          Craft tailored cover letters, follow-ups, or LinkedIn outreach texts using candidate profiles and target roles.
+        </p>
+
+        <form onSubmit={handleGenerate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label className="form-label">Target Job Title</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="e.g. Frontend Developer" 
+                value={roleTitle} 
+                onChange={e => setRoleTitle(e.target.value)} 
+                required 
+              />
+            </div>
+            <div>
+              <label className="form-label">Company Name</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="e.g. Microsoft" 
+                value={companyName} 
+                onChange={e => setCompanyName(e.target.value)} 
+                required 
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Outreach Medium</label>
+            <select 
+              className="form-control" 
+              value={outreachType} 
+              onChange={e => setOutreachType(e.target.value)}
+            >
+              <option value="linkedin">LinkedIn Introduction Message (Concise)</option>
+              <option value="email">Cold Outreach Cover Email (Detailed)</option>
+              <option value="follow_up">Job Application Follow-up Draft</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Target Job Description (Optional)</label>
+            <textarea 
+              className="form-control" 
+              rows="3" 
+              placeholder="Paste skills, stack, or job posting requirements to align draft content..." 
+              value={jobDescription} 
+              onChange={e => setJobDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">My Skills & Achievements (Pasted Resume)</label>
+            <textarea 
+              className="form-control" 
+              rows="4" 
+              placeholder="Paste your resume points, degrees, or key projects to highlight..." 
+              value={resumeText} 
+              onChange={e => setResumeText(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div style={{ color: 'var(--accent-rose)', fontSize: '0.85rem', padding: '10px', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--accent-rose)', borderRadius: '6px' }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }} disabled={loading}>
+            {loading ? 'Consulting Placement Coach LLM...' : '✨ Generate Outreach Draft'}
+          </button>
+        </form>
+      </div>
+
+      {/* Generated Response Workspace */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '380px' }}>
+        <div className="flex-between">
+          <span style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Generated Pitch Draft</span>
+          {draftText && (
+            <button 
+              className="btn" 
+              onClick={handleCopyToClipboard}
+              style={{ padding: '4px 12px', fontSize: '0.75rem', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)' }}
+            >
+              📋 Copy Draft
+            </button>
+          )}
+        </div>
+
+        <div 
+          className="form-control"
+          style={{ 
+            flex: 1, 
+            background: 'var(--bg-input)', 
+            border: '1px solid var(--border-color)', 
+            borderRadius: 'var(--border-radius-lg)', 
+            padding: '20px', 
+            overflowY: 'auto',
+            fontFamily: outreachType === 'linkedin' ? 'inherit' : 'monospace',
+            fontSize: '0.9rem',
+            lineHeight: '1.6',
+            whiteSpace: 'pre-wrap',
+            minHeight: '260px'
+          }}
+        >
+          {draftText ? (
+            draftText
+          ) : (
+            <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', marginTop: '80px' }}>
+              Your generated LinkedIn messages, follow-up letters, or cover drafts will display here. Click generate above.
+            </p>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }
