@@ -31,6 +31,7 @@ const handleResponse = async (response) => {
 };
 
 export const api = {
+  BASE_URL,
   // Authentication
   auth: {
     login: async (email, password) => {

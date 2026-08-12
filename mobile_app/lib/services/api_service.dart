@@ -990,4 +990,263 @@ class ApiService {
       return null;
     }
   }
+
+  // --- GEO-FENCED ATTENDANCE ---
+
+  Future<List<dynamic>?> getGeoCenters() async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.get(
+        Uri.parse('$baseUrl/geo-attendance/centers'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Get Geo Centers Error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> createGeoCenter(Map<String, dynamic> centerData) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.post(
+        Uri.parse('$baseUrl/geo-attendance/centers'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(centerData),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Create Geo Center Error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateGeoCenter(String centerId, Map<String, dynamic> centerData) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.put(
+        Uri.parse('$baseUrl/geo-attendance/centers/$centerId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(centerData),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Update Geo Center Error: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteGeoCenter(String centerId) async {
+    try {
+      final token = await getToken();
+      if (token == null) return false;
+      final response = await http.delete(
+        Uri.parse('$baseUrl/geo-attendance/centers/$centerId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      print('Delete Geo Center Error: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getGeoStudentCenter() async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.get(
+        Uri.parse('$baseUrl/geo-attendance/student-center'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Get Geo Student Center Error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> assignGeoCenter(String userId, String? centerId) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.post(
+        Uri.parse('$baseUrl/geo-attendance/assign-center'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'user_id': userId, 'center_id': centerId}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Assign Geo Center Error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> assignGeoCenterBulk(List<String> userIds, String? centerId) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.post(
+        Uri.parse('$baseUrl/geo-attendance/assign-center/bulk'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'user_ids': userIds, 'center_id': centerId}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Assign Geo Center Bulk Error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> markGeoAttendance(double latitude, double longitude, double gpsAccuracy) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.post(
+        Uri.parse('$baseUrl/geo-attendance/mark'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'latitude': latitude,
+          'longitude': longitude,
+          'gps_accuracy': gpsAccuracy,
+        }),
+      );
+      
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return data;
+      } else {
+        final errorMsg = data['detail'] ?? 'Failed to mark attendance';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      print('Mark Geo Attendance Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>?> getGeoHistory() async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.get(
+        Uri.parse('$baseUrl/geo-attendance/history'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Get Geo History Error: $e');
+      return null;
+    }
+  }
+
+  Future<List<dynamic>?> getGeoRecords(String? date, String? centerId, String? batchId) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      
+      String query = '';
+      if (date != null) query += 'date=${Uri.encodeComponent(date)}&';
+      if (centerId != null) query += 'center_id=${Uri.encodeComponent(centerId)}&';
+      if (batchId != null) query += 'batch_id=${Uri.encodeComponent(batchId)}&';
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/geo-attendance/records?$query'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Get Geo Records Error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> correctGeoRecord(String recordId, String status, String reason) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      final response = await http.post(
+        Uri.parse('$baseUrl/geo-attendance/records/$recordId/correct'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'status': status, 'reason': reason}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Correct Geo Record Error: $e');
+      return null;
+    }
+  }
+
+  Future<List<dynamic>?> getGeoStudents(String? centerId) async {
+    try {
+      final token = await getToken();
+      if (token == null) return null;
+      
+      String query = '';
+      if (centerId != null && centerId.isNotEmpty) {
+        query = '?center_id=${Uri.encodeComponent(centerId)}';
+      }
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/geo-attendance/students$query'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Get Geo Students Error: $e');
+      return null;
+    }
+  }
 }

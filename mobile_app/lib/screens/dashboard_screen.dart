@@ -10,6 +10,7 @@ import 'tabs/services_tab.dart';
 import 'tabs/opportunities_tab.dart';
 import 'tabs/attendance_mgmt_tab.dart';
 import 'tabs/library_mgmt_tab.dart';
+import 'tabs/geo_attendance_tab.dart';
 import 'web_portal_view.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -310,6 +311,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         icon: Icons.campaign_rounded,
       ));
+      tabItems.add(_TabConfig(
+        title: 'Geo Attendance',
+        appBarTitle: 'Geo-Fenced Attendance',
+        widget: const GeoAttendanceTab(),
+        icon: Icons.location_on_rounded,
+      ));
     } else {
       // Home Tab for Staff/Admin
       String homeTitle = 'Admin Dashboard';
@@ -393,6 +400,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onRefreshEvents: _fetchEvents,
         ),
         icon: Icons.campaign_rounded,
+      ));
+      tabItems.add(_TabConfig(
+        title: 'Geo Attendance',
+        appBarTitle: 'Geo-Fenced Attendance',
+        widget: const GeoAttendanceTab(),
+        icon: Icons.location_on_rounded,
       ));
     }
 

@@ -9528,7 +9528,8 @@ function PortfolioBuilderPanel({ user }) {
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading Portfolio Builder Settings...</div>;
   if (!portfolio) return <div style={{ color: 'var(--accent-rose)', padding: '20px' }}>Error compiling portfolio schema configurations.</div>;
 
-  const publicUrl = `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/portfolios/${portfolio.username}`;
+  const backendRoot = api.BASE_URL.replace(/\/api$/, '');
+  const publicUrl = `${backendRoot}/portfolios/${portfolio.username}`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '20px 0' }}>
