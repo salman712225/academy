@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ portfolio.page_content.home.title | default('Portfolio') }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{ colors.primary | default('#f43f5e') }};
+      --secondary: {{ colors.secondary | default('#e11d48') }};
+      --background: {{ colors.background | default('#0f172a') }};
+      --text: {{ colors.text | default('#f8fafc') }};
+      --card-bg: rgba(30, 41, 59, 0.5);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --highlight: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background-color: var(--background);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: var(--highlight);
+      text-decoration: none;
+    }
+
+    header {
+      padding: 30px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1000px;
+      margin: 0 auto;
+      border-bottom: 2px dashed rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 1.6rem;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: 20px;
+    }
+
+    nav ul li a {
+      color: var(--text);
+      opacity: 0.8;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    nav ul li a:hover {
+      opacity: 1;
+      color: var(--primary);
+    }
+
+    section {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 80px 20px;
+    }
+
+    .hero-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      min-height: 60vh;
+      border-bottom: 2px dashed rgba(255, 255, 255, 0.1);
+    }
+
+    .welcome-badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      color: var(--highlight);
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .hero-title {
+      font-size: 4rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary), var(--highlight));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradientFlow 10s infinite alternate;
+    }
+
+    .hero-subtitle {
+      font-size: 1.4rem;
+      opacity: 0.85;
+      max-width: 700px;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 1rem;
+      border: 2px solid var(--primary);
+      background-color: transparent;
+      color: var(--text);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .btn:hover {
+      background-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .section-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, var(--primary), transparent);
+    }
+
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 50px;
+    }
+
+    @media (max-width: 768px) {
+      .about-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-title {
+        font-size: 2.8rem;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+    }
+
+    .skill-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .skill-chip {
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .skill-chip:hover {
+      border-color: var(--primary);
+      background-color: rgba(244, 63, 94, 0.1);
+    }
+
+    .project-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 25px;
+    }
+
+    .project-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      transition: transform 0.3s, border-color 0.3s;
+    }
+
+    .project-card:hover {
+      transform: scale(1.02);
+      border-color: var(--primary);
+    }
+
+    .experience-card {
+      margin-bottom: 25px;
+      border-left: 4px solid var(--highlight);
+      border-radius: 0 12px 12px 0;
+    }
+
+    .experience-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .experience-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .experience-company {
+      color: var(--primary);
+    }
+
+    .experience-duration {
+      font-size: 0.9rem;
+      color: var(--highlight);
+    }
+
+    .contact-card {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .contact-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      background-color: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      font-weight: 600;
+      color: var(--text);
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .contact-btn:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      border-color: var(--highlight);
+    }
+
+    footer {
+      text-align: center;
+      padding: 60px 20px;
+      opacity: 0.6;
+      font-size: 0.85rem;
+      border-top: 2px dashed rgba(255, 255, 255, 0.1);
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">{{ portfolio.username }}</div>
+    <nav>
+      <ul>
+        {% if 'home' in portfolio.enabled_pages %}<li><a href="#home">Home</a></li>{% endif %}
+        {% if 'about' in portfolio.enabled_pages %}<li><a href="#about">About</a></li>{% endif %}
+        {% if 'projects' in portfolio.enabled_pages %}<li><a href="#projects">Work</a></li>{% endif %}
+        {% if 'experience' in portfolio.enabled_pages %}<li><a href="#experience">Career</a></li>{% endif %}
+        {% if 'contact' in portfolio.enabled_pages %}<li><a href="#contact">Contact</a></li>{% endif %}
+      </ul>
+    </nav>
+  </header>
+
+  {% if 'home' in portfolio.enabled_pages %}
+  <section id="home" class="hero-container">
+    <div class="welcome-badge">Available for Work</div>
+    <h1 class="hero-title">{{ portfolio.page_content.home.title | default("Welcome to My Portfolio") }}</h1>
+    <p class="hero-subtitle">{{ portfolio.page_content.home.subtitle | default("A summary of my achievements and projects.") }}</p>
+    {% if 'contact' in portfolio.enabled_pages %}
+      <a href="#contact" class="btn">Connect Now &rarr;</a>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if 'about' in portfolio.enabled_pages %}
+  <section id="about">
+    <h2 class="section-title">About Me</h2>
+    <div class="about-grid">
+      <div class="card">
+        <p style="font-size: 1.15rem;">{{ portfolio.page_content.about.bio | default("No bio description added yet.") }}</p>
+      </div>
+      
+      <div class="card">
+        <h3 style="font-size: 1.25rem; margin-bottom: 20px; font-weight: 700;">Tech Stack</h3>
+        {% if portfolio.page_content.about.skills %}
+        <div class="skill-container">
+          {% for skill in portfolio.page_content.about.skills %}
+            <span class="skill-chip">{{ skill }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p>No skills specified.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if 'projects' in portfolio.enabled_pages %}
+  <section id="projects">
+    <h2 class="section-title">Featured Work</h2>
+    <div class="project-grid">
+      {% for proj in portfolio.page_content.projects %}
+      <div class="card project-card">
+        <div>
+          <h3 style="font-size: 1.3rem; margin-bottom: 12px;">{{ proj.title }}</h3>
+          <p style="opacity: 0.8; font-size: 0.95rem; margin-bottom: 20px;">{{ proj.description }}</p>
+        </div>
+        {% if proj.link %}
+          <a href="{{ proj.link }}" target="_blank" style="font-weight: 700; color: var(--primary);">Explore Repository &rarr;</a>
+        {% endif %}
+      </div>
+      {% else %}
+      <p>No projects published yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if 'experience' in portfolio.enabled_pages %}
+  <section id="experience">
+    <h2 class="section-title">Professional Path</h2>
+    {% for exp in portfolio.page_content.experience %}
+    <div class="card experience-card">
+      <div class="experience-header">
+        <span class="experience-title">{{ exp.role }} <span class="experience-company">@ {{ exp.company }}</span></span>
+        <span class="experience-duration">{{ exp.duration }}</span>
+      </div>
+      <p style="opacity: 0.85; font-size: 0.95rem;">{{ exp.description }}</p>
+    </div>
+    {% else %}
+    <p>No work experience cataloged.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if 'contact' in portfolio.enabled_pages %}
+  <section id="contact">
+    <h2 class="section-title">Get in Touch</h2>
+    <p style="margin-bottom: 20px;">Let's collaborate on your next project. Reach out through my channels:</p>
+    <div class="contact-card">
+      {% if portfolio.page_content.contact.email %}
+      <a href="mailto:{{ portfolio.page_content.contact.email }}" class="contact-btn">
+        ✉️ {{ portfolio.page_content.contact.email }}
+      </a>
+      {% endif %}
+      {% if portfolio.page_content.contact.linkedin %}
+      <a href="{{ portfolio.page_content.contact.linkedin }}" target="_blank" class="contact-btn">
+        🔗 LinkedIn
+      </a>
+      {% endif %}
+      {% if portfolio.page_content.contact.github %}
+      <a href="{{ portfolio.page_content.contact.github }}" target="_blank" class="contact-btn">
+        💻 GitHub
+      </a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <footer>
+    <p>&copy; 2026 {{ portfolio.username }}. Powered by Academy Dynamic Portfolios.</p>
+  </footer>
+
+</body>
+</html>

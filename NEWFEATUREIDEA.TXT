@@ -1,0 +1,23 @@
+Here are more features categorized by system modules:
+
+💼 Placement & Career CRM
+Interactive Placement Kanban Board:
+Concept: A visual drag-and-drop board (e.g. Applied ➔ Interviewing ➔ Offer Received ➔ Hired) for students to track their placement lead pipelines.
+Benefit: Area Heads can view centralized dashboards showing pipeline metrics across all batches.
+AI Cold-Email & LinkedIn Outreach Draft Generator:
+Concept: Generates customized cover letters, LinkedIn introduction messages, or follow-up emails tailored to a specific job opening and student resume details.
+🎓 Classroom & Testing
+AI Coding Playground & Automated Code Reviewer:
+Concept: Integrates a web-based code editor (e.g. Monaco Editor, the core of VS Code) into the weekly tests panel.
+Benefit: Students write actual Python/JS code, and an AI evaluator checks their code for logic, efficiency (Big O notation), and suggests cleaner formatting.
+Attendance QR Code Check-in:
+Concept: Trainers generate a dynamic, timed QR code on the classroom screen. Students scan the QR code from their portal on their phones to log attendance.
+Benefit: Speeds up logging and prevents attendance manipulation.
+📚 Digital Library & Study Groups
+CollabSpace: Student Study Lounges & Shared Notes:
+Concept: Allows students to form online study groups, share annotated PDFs, and build community boards for peer review.
+Student-to-Student Book Lending (Peer Sharing):
+Concept: Expands the physical library by letting students list books they own for peer-to-peer lending within the academy catalog.
+🔔 Operations & Notifications
+Automated WhatsApp / Telegram Notification Bot:
+Concept: Delivers real-time notifications directly to student phones regarding test schedules, placement lead reminders, calendar events, and overdue book alerts.W
