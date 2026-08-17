@@ -127,6 +127,35 @@ def _dispatch_smtp_email_sync(to_email: str, subject: str, body: str) -> None:
         print(f"Warning: Failed to dispatch physical SMTP email to {to_email}: {str(e)}")
 
 
+async def _dispatch_resend_email_async(to_email: str, subject: str, body: str) -> None:
+    import httpx
+    api_key = getattr(settings, "RESEND_API_KEY", "")
+    if not api_key:
+        print("Warning: RESEND_API_KEY is not configured.")
+        return
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": "Admissions Team <onboarding@resend.dev>",
+                    "to": [to_email],
+                    "subject": subject,
+                    "text": body
+                },
+                timeout=10.0
+            )
+            if res.status_code not in [200, 201]:
+                print(f"Warning: Resend API returned status {res.status_code}: {res.text}")
+    except Exception as e:
+        print(f"Warning: Failed to send email via Resend API: {str(e)}")
+
+
 async def log_and_send_email(db: AsyncIOMotorDatabase, email_in: EmailCreate) -> dict:
     """Helper to write to DB sent logs and attempt SMTP dispatch with fallback log."""
     email_dict = email_in.model_dump()
@@ -148,9 +177,13 @@ async def log_and_send_email(db: AsyncIOMotorDatabase, email_in: EmailCreate) ->
     print(f"BODY:\n{email_in.body}")
     print("="*50 + "\n")
 
-    # 3. Standard SMTP execution running in background thread to prevent event loop blocking
+    # 3. Email dispatch (using Resend API if key is set, otherwise falling back to SMTP)
     import asyncio
-    asyncio.create_task(asyncio.to_thread(_dispatch_smtp_email_sync, email_in.to_email, email_in.subject, email_in.body))
+    resend_key = getattr(settings, "RESEND_API_KEY", "")
+    if resend_key:
+        asyncio.create_task(_dispatch_resend_email_async(email_in.to_email, email_in.subject, email_in.body))
+    else:
+        asyncio.create_task(asyncio.to_thread(_dispatch_smtp_email_sync, email_in.to_email, email_in.subject, email_in.body))
         
     return email_dict
 

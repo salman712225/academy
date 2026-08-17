@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     CLOUDINARY_URL: str = ""
     SNAPSERVE_API_KEY: str = ""
     SNAPSERVE_AGENT_ID: str = ""
+    RESEND_API_KEY: str = ""
 
     def model_post_init(self, __context):
         if not self.MONGODB_URL:
