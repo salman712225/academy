@@ -2778,9 +2778,9 @@ function ApplicationsPanel() {
                       controls 
                       src={
                         selectedApp.call_recording_url && selectedApp.call_recording_url.startsWith('/')
-                          ? `${api.BASE_URL.replace(/\/api$/, '')}${selectedApp.call_recording_url}`
+                          ? `${api.BASE_URL.replace(/\/api$/, '')}${selectedApp.call_recording_url}?token=${localStorage.getItem('academy_token')}`
                           : selectedApp.call_recording_url && selectedApp.call_recording_url.includes('snapserve.ai')
-                          ? `${api.BASE_URL}/batches/applications/${selectedApp.id}/recording`
+                          ? `${api.BASE_URL}/batches/applications/${selectedApp.id}/recording?token=${localStorage.getItem('academy_token')}`
                           : selectedApp.call_recording_url
                       } 
                       style={{ width: '100%' }} 

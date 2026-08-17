@@ -3,7 +3,8 @@ import shutil
 import uuid
 import cloudinary
 import cloudinary.uploader
-from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile, BackgroundTasks, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
@@ -664,13 +665,60 @@ async def initiate_student_call(
     return app
 
 
+reusable_oauth2_optional = HTTPBearer(auto_error=False)
+
+async def get_current_user_optional_token(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    token: Optional[str] = Query(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(reusable_oauth2_optional)
+):
+    actual_token = None
+    if credentials:
+        actual_token = credentials.credentials
+    elif token:
+        actual_token = token
+        
+    if not actual_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    from app.modules.auth.service import get_user_by_id, attach_permissions_to_user
+    from app.core.security import decode_access_token
+    
+    user_id = decode_access_token(actual_token)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    await attach_permissions_to_user(db, user)
+    return user
+
+
 @router.get("/applications/{app_id}/recording")
 async def get_application_call_recording(
     app_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user = Depends(require_role(["head", "associate"]))
+    current_user = Depends(get_current_user_optional_token)
 ):
     """Retrieve and stream the call recording from SnapServe securely using the server credentials."""
+    user_role = current_user.get("role")
+    if user_role not in ["head", "associate"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{user_role}' is not authorized."
+        )
+
     if not ObjectId.is_valid(app_id):
         raise HTTPException(status_code=400, detail="Invalid application ID")
         
