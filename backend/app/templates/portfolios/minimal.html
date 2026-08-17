@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ portfolio.page_content.home.title | default('Portfolio') }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{ colors.primary | default('#111827') }};
+      --secondary: {{ colors.secondary | default('#4b5563') }};
+      --background: {{ colors.background | default('#fcfbf9') }};
+      --text: {{ colors.text | default('#1f2937') }};
+      --border-color: rgba(31, 41, 55, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--background);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 0 20px;
+    }
+
+    header {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 0;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.6rem;
+      color: var(--primary);
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: 20px;
+    }
+
+    nav ul li a {
+      font-size: 0.95rem;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    nav ul li a:hover {
+      text-decoration: underline;
+    }
+
+    section {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+
+    .hero-subtitle {
+      font-size: 1.2rem;
+      opacity: 0.8;
+      max-width: 600px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 30px;
+    }
+
+    .bio-text {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .skill-list {
+      margin-top: 20px;
+      list-style: square;
+      padding-left: 20px;
+    }
+
+    .skill-list li {
+      margin-bottom: 6px;
+    }
+
+    .project-item {
+      margin-bottom: 35px;
+    }
+
+    .project-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .project-title {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--primary);
+    }
+
+    .project-link {
+      font-size: 0.85rem;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+
+    .experience-item {
+      margin-bottom: 35px;
+    }
+
+    .experience-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .experience-role {
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .experience-company {
+      font-style: italic;
+      color: var(--secondary);
+    }
+
+    .experience-duration {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    .contact-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 15px;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1rem;
+    }
+
+    .contact-item a {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    footer {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 0;
+      text-align: center;
+      font-size: 0.85rem;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">{{ portfolio.username | capitalize }}</div>
+    <nav>
+      <ul>
+        {% if 'home' in portfolio.enabled_pages %}<li><a href="#home">Home</a></li>{% endif %}
+        {% if 'about' in portfolio.enabled_pages %}<li><a href="#about">About</a></li>{% endif %}
+        {% if 'projects' in portfolio.enabled_pages %}<li><a href="#projects">Projects</a></li>{% endif %}
+        {% if 'experience' in portfolio.enabled_pages %}<li><a href="#experience">Experience</a></li>{% endif %}
+        {% if 'contact' in portfolio.enabled_pages %}<li><a href="#contact">Contact</a></li>{% endif %}
+      </ul>
+    </nav>
+  </header>
+
+  {% if 'home' in portfolio.enabled_pages %}
+  <section id="home">
+    <h1 class="hero-title">{{ portfolio.page_content.home.title | default("Welcome to My Portfolio") }}</h1>
+    <p class="hero-subtitle">{{ portfolio.page_content.home.subtitle | default("A summary of my achievements and projects.") }}</p>
+  </section>
+  {% endif %}
+
+  {% if 'about' in portfolio.enabled_pages %}
+  <section id="about">
+    <h2 class="section-title">About</h2>
+    <p class="bio-text">{{ portfolio.page_content.about.bio | default("No description bio compiled yet.") }}</p>
+    
+    {% if portfolio.page_content.about.skills %}
+    <h3 style="font-family: 'Playfair Display', serif; font-size: 1.25rem; margin-top: 30px; margin-bottom: 10px; font-weight: 700;">Skills</h3>
+    <ul class="skill-list">
+      {% for skill in portfolio.page_content.about.skills %}
+        <li>{{ skill }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if 'projects' in portfolio.enabled_pages %}
+  <section id="projects">
+    <h2 class="section-title">Projects</h2>
+    {% for proj in portfolio.page_content.projects %}
+    <div class="project-item">
+      <div class="project-header">
+        <span class="project-title">{{ proj.title }}</span>
+        {% if proj.link %}
+          <a href="{{ proj.link }}" target="_blank" class="project-link">Source Link &rarr;</a>
+        {% endif %}
+      </div>
+      <p style="opacity: 0.85; font-size: 0.95rem;">{{ proj.description }}</p>
+    </div>
+    {% else %}
+    <p>No projects published yet.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if 'experience' in portfolio.enabled_pages %}
+  <section id="experience">
+    <h2 class="section-title">Chronology</h2>
+    {% for exp in portfolio.page_content.experience %}
+    <div class="experience-item">
+      <div class="experience-header">
+        <span class="experience-role">{{ exp.role }} <span class="experience-company">at {{ exp.company }}</span></span>
+        <span class="experience-duration">{{ exp.duration }}</span>
+      </div>
+      <p style="opacity: 0.85; font-size: 0.95rem;">{{ exp.description }}</p>
+    </div>
+    {% else %}
+    <p>No work experience cataloged.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if 'contact' in portfolio.enabled_pages %}
+  <section id="contact" style="border-bottom: none;">
+    <h2 class="section-title">Reach Out</h2>
+    <div class="contact-list">
+      {% if portfolio.page_content.contact.email %}
+      <div class="contact-item">
+        <strong>Email:</strong> <a href="mailto:{{ portfolio.page_content.contact.email }}">{{ portfolio.page_content.contact.email }}</a>
+      </div>
+      {% endif %}
+      {% if portfolio.page_content.contact.linkedin %}
+      <div class="contact-item">
+        <strong>LinkedIn:</strong> <a href="{{ portfolio.page_content.contact.linkedin }}" target="_blank">linkedin.com/in/{{ portfolio.username }}</a>
+      </div>
+      {% endif %}
+      {% if portfolio.page_content.contact.github %}
+      <div class="contact-item">
+        <strong>GitHub:</strong> <a href="{{ portfolio.page_content.contact.github }}" target="_blank">github.com/{{ portfolio.username }}</a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <footer>
+    <p>&copy; 2026 {{ portfolio.username | capitalize }}. Portfolio template by Academy.</p>
+  </footer>
+
+</body>
+</html>

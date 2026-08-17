@@ -1,0 +1,657 @@
+--- TrainerAttendancePanel ---
+695: function TrainerAttendancePanel({ user }) {
+696:   const [batches, setBatches] = useState([]);
+697:   const [selectedBatch, setSelectedBatch] = useState('');
+698:   const [file, setFile] = useState(null);
+699:   const [columns, setColumns] = useState([]);
+700:   const [logs, setLogs] = useState([]);
+701:   const [loading, setLoading] = useState(false);
+702:   const [warnings, setWarnings] = useState([]);
+703:   const [stats, setStats] = useState({ day_summaries: [], topic_counts: {} });
+704:   const [statsLoading, setStatsLoading] = useState(false);
+705:   const [viewMode, setViewMode] = useState('list'); // list, stats
+706: 
+707:   // Sub-pages states
+708:   const [subTab, setSubTab] = useState('manual_update'); // manual_update, xlsx_upload, view_attendance
+709:   
+710:   // Helper to format today's date
+711:   const getTodayString = () => {
+712:     const today = new Date();
+713:     const yyyy = today.getFullYear();
+714:     const mm = String(today.getMonth() + 1).padStart(2, '0');
+715:     const dd = String(today.getDate()).padStart(2, '0');
+716:     return `${yyyy}-${mm}-${dd}`;
+717:   };
+718: 
+719:   const [selectedDate, setSelectedDate] = useState(getTodayString());
+720:   const [students, setStudents] = useState([]);
+721:   const [manualRecords, setManualRecords] = useState({});
+722:   const [manualLoading, setManualLoading] = useState(false);
+723:   const [saving, setSaving] = useState(false);
+724: 
+725:   // View state filters
+726:   const [viewDateFilter, setViewDateFilter] = useState('');
+727:   const [searchTerm, setSearchTerm] = useState('');
+728: 
+729:   // Fetch batches & schema on load
+730:   useEffect(() => {
+731:     const fetchSchemaAndBatches = async () => {
+732:       try {
+733:         const schemaData = await api.attendance.getSchema();
+734:         setColumns(schemaData.expected_columns || []);
+735:         
+736:         const batchData = await api.batches.list();
+737:         if (user.role === 'trainer') {
+738:           const assigned = user.classes_assigned || [];
+739:           setBatches(batchData.filter(b => assigned.includes(b.name)));
+740:         } else {
+741:           setBatches(batchData);
+742:         }
+743:       } catch (err) {
+744:         console.error(err);
+745:       }
+746:     };
+747:     fetchSchemaAndBatches();
+748:   }, [user]);
+749: 
+750:   // Fetch student list & existing attendance for manual tab
+751:   const fetchManualAttendance = async () => {
+752:     if (!selectedBatch) {
+753:       setStudents([]);
+754:       setManualRecords({});
+755:       return;
+756:     }
+757:     setManualLoading(true);
+758:     try {
+759:       const studentsList = await api.attendance.getBatchStudents(selectedBatch);
+760:       setStudents(studentsList);
+761: 
+762:       const existing = await api.attendance.getBatchAttendance(selectedBatch, selectedDate);
+763:       
+764:       const recordsMap = {};
+765:       studentsList.forEach(student => {
+766:         const studentEmail = student.email.toLowerCase();
+767:         const found = existing.find(r => r.student_email.toLowerCase() === studentEmail);
+768:         recordsMap[student.email] = {
+769:           session_1: found ? found.session_1 : 'None',
+770:           session_2: found ? found.session_2 : 'None',
+771:           session_3: found ? found.session_3 : 'None',
+772:           session_4: found ? found.session_4 : 'None'
+773:         };
+774:       });
+775:       setManualRecords(recordsMap);
+776:     } catch (err) {
+777:       console.error("Error loading manual attendance: ", err);
+778:     } finally {
+779:       setManualLoading(false);
+780:     }
+781:   };
+782: 
+783:   useEffect(() => {
+784:     if (subTab === 'manual_update') {
+785:       fetchManualAttendance();
+786:     }
+787:   }, [selectedBatch, selectedDate, subTab]);
+788: 
+789:   // Fetch all batch logs for view tab
+790:   const fetchBatchAttendance = async () => {
+791:     if (!selectedBatch) return;
+792:     try {
+793:       const data = await api.attendance.getBatchAttendance(selectedBatch, viewDateFilter);
+794:       setLogs(data);
+795:     } catch (err) {
+796:       console.error(err);
+797:     }
+798:   };
+799: 
+800:   const fetchStats = async () => {
+801:     if (!selectedBatch) return;
+802:     setStatsLoading(true);
+803:     try {
+804:       const data = await api.attendance.getStats(selectedBatch);
+805:       setStats(data || { day_summaries: [], topic_counts: {} });
+806:     } catch (err) {
+807:       console.error(err);
+808:     } finally {
+809:       setStatsLoading(false);
+810:     }
+811:   };
+812: 
+813:   useEffect(() => {
+814:     if (subTab === 'view_attendance') {
+815:       fetchBatchAttendance();
+816:       fetchStats();
+817:     }
+818:   }, [selectedBatch, viewDateFilter, subTab]);
+819: 
+820:   // Handlers
+821:   const handleSessionChange = (email, sessionKey, value) => {
+822:     setManualRecords(prev => ({
+823:       ...prev,
+824:       [email]: {
+825:         ...prev[email],
+826:         [sessionKey]: value
+827:       }
+828:     }));
+829:   };
+830: 
+831:   const handleSaveManual = async (e) => {
+832:     e.preventDefault();
+833:     if (!selectedBatch || !selectedDate) return;
+834:     
+835:     setSaving(true);
+836:     try {
+837:       const recordsList = Object.entries(manualRecords).map(([email, sessions]) => ({
+838:         student_email: email,
+839:         ...sessions
+840:       }));
+841:       
+842:       const payload = {
+843:         batch_id: selectedBatch,
+844:         date: selectedDate,
+845:         records: recordsList
+846:       };
+847:       
+848:       const response = await api.attendance.manualUpdate(payload);
+849:       alert(response.message);
+850:       fetchBatchAttendance();
+851:       fetchStats();
+852:     } catch (err) {
+853:       alert(err.message || "Failed to save attendance");
+854:     } finally {
+855:       setSaving(false);
+856:     }
+857:   };
+858: 
+859:   const handleUpload = async (e) => {
+860:     e.preventDefault();
+861:     if (!selectedBatch || !file) return;
+862:     
+863:     setLoading(true);
+864:     setWarnings([]);
+865:     try {
+866:       const response = await api.attendance.upload(selectedBatch, file);
+867:       alert(response.message);
+868:       if (response.warnings_errors && response.warnings_errors.length > 0) {
+869:         setWarnings(response.warnings_errors);
+870:       }
+871:       setFile(null);
+872:       fetchBatchAttendance();
+873:       fetchStats();
+874:     } catch (err) {
+875:       alert(err.message);
+876:     } finally {
+877:       setLoading(false);
+878:     }
+879:   };
+880: 
+881:   const handleDeleteDate = async () => {
+882:     if (!selectedBatch || !viewDateFilter) return;
+883:     if (!window.confirm(`Are you sure you want to delete all attendance records for batch '${selectedBatch}' on ${viewDateFilter}?`)) return;
+884:     
+885:     setLoading(true);
+886:     try {
+887:       const res = await api.attendance.deleteDate(selectedBatch, viewDateFilter);
+888:       alert(res.message);
+889:       fetchBatchAttendance();
+890:       fetchStats();
+891:     } catch (err) {
+892:       alert(err.message || "Failed to delete date attendance");
+893:     } finally {
+894:       setLoading(false);
+895:     }
+896:   };
+897: 
+898:   const handleDeleteAll = async () => {
+899:     if (!selectedBatch) return;
+900:     if (!window.confirm(`WARNING: Are you sure you want to delete ALL attendance records and summaries for batch '${selectedBatch}'? This cannot be undone.`)) return;
+901:     
+902:     setLoading(true);
+903:     try {
+904:       const res = await api.attendance.deleteAll(selectedBatch);
+905:       alert(res.message);
+906:       fetchBatchAttendance();
+907:       fetchStats();
+908:     } catch (err) {
+909:       alert(err.message || "Failed to delete all attendance");
+910:     } finally {
+911:       setLoading(false);
+912:     }
+913:   };
+914: 
+915:   const getSessionBgColor = (status) => {
+916:     if (!status) return '#475569';
+917:     const s = status.toString().trim().toLowerCase();
+918:     if (s === 'none' || s === '-' || s === '') return '#475569'; // Slate/None
+919:     if (s === 'absent') return '#f43f5e';  // Rose
+920:     if (s === 'late') return '#f59e0b';    // Amber
+921:     return '#10b981';                       // Emerald (Present/Topic)
+922:   };
+923: 
+924:   const filteredLogs = logs.filter(l => 
+925:     l.student_email.toLowerCase().includes(searchTerm.toLowerCase())
+926:   );
+927: 
+928:   return (
+929:     <div>
+930:       <h2 style={{ marginBottom: '8px' }}>Class Attendance</h2>
+931:       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+932:         Manage and track student class attendance. Supports manual updates, XLSX sheet imports, and date-filtered log reviews.
+933:       </p>
+934: 
+935:       {/* Sub-tabs Navigation */}
+936:       <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px', paddingBottom: '12px' }}>
+937:         <button 
+938:           className={`btn ${subTab === 'manual_update' ? 'btn-primary' : 'btn-secondary'}`}
+939:           onClick={() => setSubTab('manual_update')}
+940:           style={{ padding: '8px 16px', borderRadius: '8px' }}
+941:         >
+942:           Manual Update
+943:         </button>
+944:         <button 
+
+
+--- AssociateLibraryPanel ---
+1573: function AssociateLibraryPanel() {
+1574:   const [books, setBooks] = useState([]);
+1575:   const [activeLendings, setActiveLendings] = useState([]);
+1576:   const [loading, setLoading] = useState(true);
+1577: 
+1578:   // Forms states
+1579:   const [studentEmail, setStudentEmail] = useState('');
+1580:   const [selectedBookId, setSelectedBookId] = useState('');
+1581:   const [selectedCopyId, setSelectedCopyId] = useState('');
+1582: 
+1583:   const fetchLibraryData = async () => {
+1584:     try {
+1585:       const bList = await api.library.listBooks();
+1586:       setBooks(bList);
+1587:       
+1588:       const lList = await api.library.activeLendings();
+1589:       setActiveLendings(lList);
+1590:     } catch (err) {
+1591:       console.error(err);
+1592:     } finally {
+1593:       setLoading(false);
+1594:     }
+1595:   };
+1596: 
+1597:   useEffect(() => {
+1598:     fetchLibraryData();
+1599:   }, []);
+1600: 
+1601:   const handleLend = async (e) => {
+1602:     e.preventDefault();
+1603:     if (!studentEmail || !selectedBookId || !selectedCopyId) return;
+1604: 
+1605:     try {
+1606:       await api.library.lendBook({
+1607:         student_email: studentEmail,
+1608:         book_id: selectedBookId,
+1609:         copy_id: selectedCopyId
+1610:       });
+1611:       alert('Book lent successfully!');
+1612:       setStudentEmail('');
+1613:       setSelectedBookId('');
+1614:       setSelectedCopyId('');
+1615:       fetchLibraryData();
+1616:     } catch (err) {
+1617:       alert(err.message);
+1618:     }
+1619:   };
+1620: 
+1621:   const handleReturn = async (id) => {
+1622:     try {
+1623:       const response = await api.library.returnBook(id);
+1624:       alert(`Book copy returned successfully! Final accumulated fine: ₹${response.fine_amount}`);
+1625:       fetchLibraryData();
+1626:     } catch (err) {
+1627:       alert(err.message);
+1628:     }
+1629:   };
+1630: 
+1631:   // Get available copies for selected book
+1632:   const getAvailableCopies = () => {
+1633:     if (!selectedBookId) return [];
+1634:     const book = books.find(b => b.id === selectedBookId);
+1635:     return book ? book.copies.filter(c => c.status === 'available') : [];
+1636:   };
+1637: 
+1638:   return (
+1639:     <div>
+1640:       <h2>Library Lending Operations</h2>
+1641:       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Distribute copies collision-free to enrolled students.</p>
+1642: 
+1643:       <div className="grid-2" style={{ marginBottom: '32px' }}>
+1644:         {/* Lend Form */}
+1645:         <div className="glass-card">
+1646:           <h3>Issue Book Copy</h3>
+1647:           <form onSubmit={handleLend} style={{ marginTop: '16px' }}>
+1648:             <div className="form-group">
+1649:               <label className="form-label">Student Email ID</label>
+1650:               <input 
+1651:                 type="email" 
+1652:                 className="form-control" 
+1653:                 required 
+1654:                 value={studentEmail} 
+1655:                 onChange={e => setStudentEmail(e.target.value)} 
+1656:                 placeholder="student@academy.com" 
+1657:               />
+1658:             </div>
+1659:             
+1660:             <div className="form-group">
+1661:               <label className="form-label">Select Book</label>
+1662:               <select 
+1663:                 className="form-control" 
+1664:                 required 
+1665:                 value={selectedBookId} 
+1666:                 onChange={e => { setSelectedBookId(e.target.value); setSelectedCopyId(''); }}
+1667:               >
+1668:                 <option value="">-- Choose Book Title --</option>
+1669:                 {books.map(b => (
+1670:                   <option key={b.id} value={b.id}>{b.title} (by {b.author})</option>
+1671:                 ))}
+1672:               </select>
+1673:             </div>
+1674: 
+1675:             {selectedBookId && (
+1676:               <div className="form-group">
+1677:                 <label className="form-label">Select Available Copy Unique ID</label>
+1678:                 <select 
+1679:                   className="form-control" 
+1680:                   required 
+1681:                   value={selectedCopyId} 
+1682:                   onChange={e => setSelectedCopyId(e.target.value)}
+1683:                 >
+1684:                   <option value="">-- Choose Copy --</option>
+1685:                   {getAvailableCopies().map(c => (
+1686:                     <option key={c.copy_id} value={c.copy_id}>{c.copy_id}</option>
+1687:                   ))}
+1688:                 </select>
+1689:                 {getAvailableCopies().length === 0 && (
+1690:                   <div style={{ color: 'var(--accent-rose)', fontSize: '0.8rem', marginTop: '6px' }}>
+1691:                     Warning: All copies of this book are currently out of stock (lent).
+1692:                   </div>
+1693:                 )}
+1694:               </div>
+1695:             )}
+1696: 
+1697:             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '12px' }} disabled={selectedBookId && getAvailableCopies().length === 0}>
+1698:               Commit Lending Order
+1699:             </button>
+1700:           </form>
+1701:         </div>
+1702: 
+1703:         {/* Current book inventory lookup */}
+1704:         <div className="glass-card" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+1705:           <h3>Books Inventory & Copies Status</h3>
+1706:           <div style={{ marginTop: '16px' }}>
+1707:             {books.map(b => (
+1708:               <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
+1709:                 <div style={{ fontWeight: '600' }}>{b.title}</div>
+1710:                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ISBN: {b.isbn} | Author: {b.author}</div>
+1711:                 
+1712:                 <div className="copies-grid">
+1713:                   {b.copies.map(c => (
+1714:                     <div 
+1715:                       key={c.copy_id} 
+1716:                       className={`copy-badge ${c.status}`}
+1717:                       title={
+1718:                         c.status === 'lent'
+1719:                           ? `Lent to: ${c.lent_to}\nStudent ID: ${c.lent_to_id || 'N/A'}`
+1720:                           : c.last_lent_to
+1721:                             ? `Last lent to: ${c.last_lent_to}\nStudent ID: ${c.last_lent_to_id || 'N/A'}`
+1722:                             : 'Never lent'
+1723:                       }
+1724:                     >
+1725:                       <div style={{ fontWeight: '500' }}>{c.copy_id.split('-').pop()}</div>
+1726:                       <div style={{ fontSize: '0.7rem', textTransform: 'capitalize' }}>{c.status}</div>
+1727:                     </div>
+1728:                   ))}
+1729:                 </div>
+1730:               </div>
+1731:             ))}
+1732:             {books.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No books in catalog.</p>}
+1733:           </div>
+1734:         </div>
+1735:       </div>
+1736: 
+1737:       <h3>Active Outbox (Lent Items)</h3>
+1738:       <div className="table-wrapper">
+1739:         <table className="custom-table">
+1740:           <thead>
+1741:             <tr>
+1742:               <th>Student</th>
+1743:               <th>Book Title</th>
+1744:               <th>Copy Unique ID</th>
+1745:               <th>Lend Date & Time</th>
+1746:               <th>Due Date & Time</th>
+1747:               <th>Status</th>
+1748:               <th>Accrued Fine</th>
+1749:               <th>Action</th>
+1750:             </tr>
+1751:           </thead>
+1752:           <tbody>
+1753:             {activeLendings.map(l => (
+1754:               <tr key={l.id}>
+1755:                 <td>{l.student_email}</td>
+1756:                 <td>{l.book_title}</td>
+1757:                 <td><code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{l.copy_id}</code></td>
+1758:                 <td>{new Date(l.lend_date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</td>
+1759:                 <td>{new Date(l.due_date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</td>
+1760:                 <td>
+1761:                   {l.status === 'overdue' ? (
+1762:                     <span className="badge badge-absent" style={{ textTransform: 'capitalize' }}>Overdue</span>
+1763:                   ) : (
+1764:                     <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', textTransform: 'capitalize' }}>Lent</span>
+1765:                   )}
+1766:                 </td>
+1767:                 <td style={{ fontWeight: '600', color: l.fine_amount > 0 ? 'var(--accent-rose)' : 'inherit' }}>₹{l.fine_amount.toFixed(2)}</td>
+1768:                 <td>
+1769:                   <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => handleReturn(l.id)}>
+1770:                     Log Return
+1771:                   </button>
+1772:                 </td>
+
+
+--- HeadLibraryManagerPanel ---
+2433: function HeadLibraryManagerPanel() {
+2434:   const [books, setBooks] = useState([]);
+2435:   const [activeLendings, setActiveLendings] = useState([]);
+2436:   const [loading, setLoading] = useState(true);
+2437:   const [searchQuery, setSearchQuery] = useState('');
+2438: 
+2439:   // Forms states
+2440:   const [studentEmail, setStudentEmail] = useState('');
+2441:   const [selectedBookId, setSelectedBookId] = useState('');
+2442:   const [selectedCopyId, setSelectedCopyId] = useState('');
+2443: 
+2444:   const fetchLibraryData = async () => {
+2445:     try {
+2446:       const bList = await api.library.listBooks();
+2447:       setBooks(bList);
+2448:       
+2449:       const lList = await api.library.activeLendings();
+2450:       setActiveLendings(lList);
+2451:     } catch (err) {
+2452:       console.error(err);
+2453:     } finally {
+2454:       setLoading(false);
+2455:     }
+2456:   };
+2457: 
+2458:   useEffect(() => {
+2459:     fetchLibraryData();
+2460:   }, []);
+2461: 
+2462:   const handleLend = async (e) => {
+2463:     if (e) e.preventDefault();
+2464:     if (!studentEmail || !selectedBookId || !selectedCopyId) return;
+2465: 
+2466:     try {
+2467:       await api.library.lendBook({
+2468:         student_email: studentEmail,
+2469:         book_id: selectedBookId,
+2470:         copy_id: selectedCopyId
+2471:       });
+2472:       alert('Book copy lent successfully!');
+2473:       setStudentEmail('');
+2474:       setSelectedBookId('');
+2475:       setSelectedCopyId('');
+2476:       fetchLibraryData();
+2477:     } catch (err) {
+2478:       alert(err.message);
+2479:     }
+2480:   };
+2481: 
+2482:   const handleReturn = async (id) => {
+2483:     try {
+2484:       const response = await api.library.returnBook(id);
+2485:       alert(`Book copy returned successfully! Final fine: ₹${response.fine_amount}`);
+2486:       fetchLibraryData();
+2487:     } catch (err) {
+2488:       alert(err.message);
+2489:     }
+2490:   };
+2491: 
+2492:   const handleReturnByCopyId = async (copyId) => {
+2493:     const lending = activeLendings.find(l => l.copy_id === copyId && (l.status === 'lent' || l.status === 'overdue'));
+2494:     if (lending) {
+2495:       await handleReturn(lending.id);
+2496:     } else {
+2497:       alert('Lending record not found for this copy.');
+2498:     }
+2499:   };
+2500: 
+2501:   const handleQuickLend = (bookId, copyId) => {
+2502:     setSelectedBookId(bookId);
+2503:     setSelectedCopyId(copyId);
+2504:     document.getElementById('issue-student-email')?.focus();
+2505:   };
+2506: 
+2507:   const getAvailableCopies = () => {
+2508:     if (!selectedBookId) return [];
+2509:     const book = books.find(b => b.id === selectedBookId);
+2510:     return book ? book.copies.filter(c => c.status === 'available') : [];
+2511:   };
+2512: 
+2513:   const flatCopies = [];
+2514:   books.forEach(b => {
+2515:     if (b.copies) {
+2516:       b.copies.forEach(c => {
+2517:         flatCopies.push({
+2518:           isbn: b.isbn,
+2519:           title: b.title,
+2520:           bookId: b.id,
+2521:           copyId: c.copy_id,
+2522:           status: c.status,
+2523:           lentTo: c.lent_to,
+2524:           lentToId: c.lent_to_id,
+2525:           lastLentTo: c.last_lent_to,
+2526:           lastLentToId: c.last_lent_to_id
+2527:         });
+2528:       });
+2529:     }
+2530:   });
+2531: 
+2532:   const filteredCopies = flatCopies.filter(c => 
+2533:     c.isbn.toLowerCase().includes(searchQuery.toLowerCase()) || 
+2534:     c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+2535:     c.copyId.toLowerCase().includes(searchQuery.toLowerCase())
+2536:   );
+2537: 
+2538:   return (
+2539:     <div>
+2540:       <h2>Library Manager</h2>
+2541:       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+2542:         Lend book copies to students and log returned inventory items cleanly.
+2543:       </p>
+2544: 
+2545:       <div className="grid-2" style={{ marginBottom: '32px', alignItems: 'start' }}>
+2546:         {/* Issue form */}
+2547:         <div className="glass-card">
+2548:           <h3>Issue Book Copy</h3>
+2549:           <form onSubmit={handleLend} style={{ marginTop: '16px' }}>
+2550:             <div className="form-group">
+2551:               <label className="form-label">Student Email ID</label>
+2552:               <input 
+2553:                 id="issue-student-email"
+2554:                 type="email" 
+2555:                 className="form-control" 
+2556:                 required 
+2557:                 value={studentEmail} 
+2558:                 onChange={e => setStudentEmail(e.target.value)} 
+2559:                 placeholder="student@academy.com" 
+2560:               />
+2561:             </div>
+2562:             
+2563:             <div className="form-group">
+2564:               <label className="form-label">Select Book</label>
+2565:               <select 
+2566:                 className="form-control" 
+2567:                 required 
+2568:                 value={selectedBookId} 
+2569:                 onChange={e => { setSelectedBookId(e.target.value); setSelectedCopyId(''); }}
+2570:               >
+2571:                 <option value="">-- Choose Book Title --</option>
+2572:                 {books.map(b => (
+2573:                   <option key={b.id} value={b.id}>{b.title} (by {b.author})</option>
+2574:                 ))}
+2575:               </select>
+2576:             </div>
+2577: 
+2578:             {selectedBookId && (
+2579:               <div className="form-group">
+2580:                 <label className="form-label">Select Available Copy Unique ID</label>
+2581:                 <select 
+2582:                   className="form-control" 
+2583:                   required 
+2584:                   value={selectedCopyId} 
+2585:                   onChange={e => setSelectedCopyId(e.target.value)}
+2586:                 >
+2587:                   <option value="">-- Choose Copy --</option>
+2588:                   {getAvailableCopies().map(c => (
+2589:                     <option key={c.copy_id} value={c.copy_id}>{c.copy_id}</option>
+2590:                   ))}
+2591:                 </select>
+2592:                 {getAvailableCopies().length === 0 && (
+2593:                   <div style={{ color: 'var(--accent-rose)', fontSize: '0.8rem', marginTop: '6px' }}>
+2594:                     Warning: All copies of this book are currently lent out.
+2595:                   </div>
+2596:                 )}
+2597:               </div>
+2598:             )}
+2599: 
+2600:             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '12px' }} disabled={selectedBookId && getAvailableCopies().length === 0}>
+2601:               Commit Lending Order
+2602:             </button>
+2603:           </form>
+2604:         </div>
+2605: 
+2606:         {/* Active Outbox */}
+2607:         <div className="glass-card" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+2608:           <h3>Active Outbox (Lent Items)</h3>
+2609:           <div style={{ marginTop: '16px' }} className="table-wrapper">
+2610:             <table className="custom-table" style={{ fontSize: '0.85rem' }}>
+2611:               <thead>
+2612:                 <tr>
+2613:                   <th>Student</th>
+2614:                   <th>Book Title</th>
+2615:                   <th>Copy ID</th>
+2616:                   <th>Lend Date & Time</th>
+2617:                   <th>Due Date & Time</th>
+2618:                   <th>Status</th>
+2619:                   <th>Accrued Fine</th>
+2620:                   <th>Action</th>
+2621:                 </tr>
+2622:               </thead>
+2623:               <tbody>
+2624:                 {activeLendings.map(l => (
+2625:                   <tr key={l.id}>
+2626:                     <td>{l.student_email}</td>
+2627:                     <td>{l.book_title}</td>
+2628:                     <td><code>{l.copy_id}</code></td>
+2629:                     <td>{new Date(l.lend_date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</td>
+2630:                     <td>{new Date(l.due_date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</td>
+2631:                     <td>
+2632:                       {l.status === 'overdue' ? (
