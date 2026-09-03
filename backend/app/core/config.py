@@ -20,10 +20,6 @@ class Settings(BaseSettings):
         if self.CLOUDINARY_URL:
             os.environ["CLOUDINARY_URL"] = self.CLOUDINARY_URL
 
-    # Default Seed Head Account
-    SEED_HEAD_EMAIL: str = "head@academy.com"
-    SEED_HEAD_PASSWORD: str = "HeadAdmin2026!"
-    SEED_HEAD_NAME: str = "Area Head"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
